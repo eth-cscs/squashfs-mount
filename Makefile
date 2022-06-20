@@ -4,7 +4,7 @@ prefix = /usr/local
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 
-CFLAGS ?= -Os
+CFLAGS ?= -Os -Wall -Wpedantic
 LDFLAGS ?= -Wl,--gc-sections,-s
 ENV_RUN_CFLAGS = -std=c99
 ENV_RUN_LDFLAGS = -lmount

@@ -16,7 +16,7 @@
 
 #include <libmount/libmount.h>
 
-#define exit_with_error(args...) do { fprintf(stderr, args); exit(EXIT_FAILURE); } while (0)
+#define exit_with_error(...) do { fprintf(stderr, __VA_ARGS__); exit(EXIT_FAILURE); } while (0)
 
 int main (int argc, char **argv) {
     struct libmnt_context *cxt;
