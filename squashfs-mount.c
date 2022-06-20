@@ -37,9 +37,6 @@ int main (int argc, char **argv) {
 
     cxt = mnt_new_context();
 
-    if (mnt_context_is_restricted(cxt))
-        exit_with_error("Restricted...\n");
-
     if (mnt_context_disable_mtab(cxt, 1) != 0)
         exit_with_error("Failed to disable mtab\n");
 
@@ -50,7 +47,7 @@ int main (int argc, char **argv) {
         exit_with_error("Failed to set target\n");
 
     if (mnt_context_set_source(cxt, argv[1]) != 0)
-        exit_with_error("Failed to set target\n");
+        exit_with_error("Failed to set source\n");
 
     if (mnt_context_set_target(cxt, argv[2]) != 0)
         exit_with_error("Failed to set target\n");
