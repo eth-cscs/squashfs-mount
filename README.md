@@ -13,8 +13,8 @@ single file, no need to extract. The downside is they can only be mounted
 issues:
 
 1. Bad performance compared to the Linux kernel. The following benchmark tests
-   compilation performance for a few compilers in a squashfs file (700MB
-   compressed with zlib).
+   compilation performance of a hello world C program for a few compilers in a
+   squashfs file (700MB compressed with zlib).
 
    Using `squashfuse 0.1.103` and `fuse 3.9.0`:
    
