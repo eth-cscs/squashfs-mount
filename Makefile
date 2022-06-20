@@ -6,16 +6,16 @@ bindir = $(exec_prefix)/bin
 
 CFLAGS ?= -Os -Wall -Wpedantic
 LDFLAGS ?= -Wl,--gc-sections,-s
-ENV_RUN_CFLAGS = -std=c99
-ENV_RUN_LDFLAGS = -lmount
+SQUASHFS_MOUNT_CFLAGS = -std=c99
+SQUASHFS_MOUNT_LDFLAGS = -lmount
 
 all: squashfs-mount
 
 %.o: %.c
-	$(CC) $(INC) $(CFLAGS) $(ENV_RUN_CFLAGS) -c -o $@ $<
+	$(CC) $(INC) $(CFLAGS) $(SQUASHFS_MOUNT_CFLAGS) -c -o $@ $<
 
 squashfs-mount: squashfs-mount.o
-	$(CC) $< $(LIB) $(LDFLAGS) $(ENV_RUN_LDFLAGS) -o $@
+	$(CC) $< $(LIB) $(LDFLAGS) $(SQUASHFS_MOUNT_LDFLAGS) -o $@
 
 
 install: squashfs-mount
