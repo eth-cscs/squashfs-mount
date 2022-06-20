@@ -12,10 +12,10 @@ SQUASHFS_MOUNT_LDFLAGS = -lmount
 all: squashfs-mount
 
 %.o: %.c
-	$(CC) $(INC) $(CFLAGS) $(SQUASHFS_MOUNT_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(SQUASHFS_MOUNT_CFLAGS) -c -o $@ $<
 
 squashfs-mount: squashfs-mount.o
-	$(CC) $< $(LIB) $(LDFLAGS) $(SQUASHFS_MOUNT_LDFLAGS) -o $@
+	$(CC) $< $(LDFLAGS) $(SQUASHFS_MOUNT_LDFLAGS) -o $@
 
 
 install: squashfs-mount
