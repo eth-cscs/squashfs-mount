@@ -1,4 +1,4 @@
-.PHONY: install clean
+.PHONY: install install-suid clean
 
 prefix = /usr/local
 exec_prefix = $(prefix)
@@ -17,10 +17,13 @@ all: squashfs-mount
 squashfs-mount: squashfs-mount.o
 	$(CC) $< $(LDFLAGS) $(SQUASHFS_MOUNT_LDFLAGS) -o $@
 
-
 install: squashfs-mount
 	mkdir -p $(DESTDIR)$(bindir)
 	cp -p squashfs-mount $(DESTDIR)$(bindir)
+
+install-suid: install
+	chown root:root $(DESTDIR)$(bindir)/squashfs-mount
+	chmod u+s $(DESTDIR)$(bindir)/squashfs-mount
 
 clean:
 	rm -f squashfs-mount squashfs-mount.o
