@@ -58,8 +58,12 @@ int main (int argc, char **argv) {
     if (setresuid(uid, uid, uid) != 0)
         exit_with_error("setresuid failed\n");
 
+    // If SQUASHFS_MOUNT_NO_NEW_PRIVS is defined, we effectively do not allow
+    // nested `squashfs-mount` calls
+#if defined(SQUASHFS_MOUNT_NO_NEW_PRIVS)
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
         exit_with_error("prctl failed\n");
+#endif
 
     return execvp(argv[3], argv + 3);
 }
