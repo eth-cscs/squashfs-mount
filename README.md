@@ -16,9 +16,10 @@ issues:
    file containing GCC, the time to build a subset (2k targets) of LLVM 14.0.5:
    - squashfs-mount: `8m 9.52s`;
    - squashfuse 0.1.103 / fuse 3.9.0: `12m 49.00s`.
-   Which is about a `1.57x` slower.
+
+   squashfuse has about 57% overhead compiling LLVM.
    
-   Another "latency" benchmark, compiling a helo world C file:
+   Another "latency" benchmark, compiling a hello world C file:
    ```
    Benchmark 1: ./squashfuse/gcc-10.3.0-ammihitysch7br7kke3pntiplfblqpdu/bin/gcc -c main.c
      Time (mean ± σ):      61.2 ms ±   3.1 ms    [User: 13.1 ms, System: 6.2 ms]
