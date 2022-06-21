@@ -97,9 +97,18 @@ issues:
 
 ## Install instructions
 
+Build and install without privileges and make it a root-owned setuid binary by hand:
+
 ```console
 make
-sudo chown root:root squashfs-mount
-sudo chmod +s squashfs-mount
-make install
+make install prefix=./install
+sudo chown root:root ./install/bin/squashfs-mount
+sudo chmod u+s ./install/bin/squashfs-mount
+```
+
+Or use the `install-suid` target:
+
+```
+make install prefix=./install
+sudo make install-suid prefix=./install
 ```
