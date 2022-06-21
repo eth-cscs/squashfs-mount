@@ -12,12 +12,13 @@ single file, no need to extract. The downside is they can only be mounted
 "rootless" (well, using setuid fusermount) with `squashfuse`, which has two
 issues:
 
-1. Bad performance compared to the Linux kernel. The following benchmark tests
-   compilation performance of a hello world C program for a few compilers in a
-   squashfs file (700MB compressed with zlib).
-
-   Using `squashfuse 0.1.103` and `fuse 3.9.0`:
+1. Bad performance compared to the Linux kernel. Using a 700MB gzip compressed squashfs
+   file containing GCC, the time to build a subset (2k targets) of LLVM 14.0.5:
+   - squashfs-mount: `8m 9.52s`;
+   - squashfuse 0.1.103 / fuse 3.9.0: `12m 49.00s`.
+   Which is about a `1.57x` slower.
    
+   Another "latency" benchmark, compiling a helo world C file:
    ```
    Benchmark 1: ./squashfuse/gcc-10.3.0-ammihitysch7br7kke3pntiplfblqpdu/bin/gcc -c main.c
      Time (mean ± σ):      61.2 ms ±   3.1 ms    [User: 13.1 ms, System: 6.2 ms]
@@ -46,9 +47,7 @@ issues:
        3.68 ± 0.42 times faster than './squashfuse/gcc-10.3.0-ammihitysch7br7kke3pntiplfblqpdu/bin/gcc -c main.c'
        4.72 ± 0.54 times faster than './squashfuse/gcc-9.5.0-dwbag4fgidanx5rgm2apidnajtpneza6/bin/gcc -c main.c'
    ```
-
-   Using `squashfs-mount` (or well, the `mount` convenience wrapper of this repo...):
-
+   versus
    ```
    Benchmark 1: ./native/gcc-10.3.0-ammihitysch7br7kke3pntiplfblqpdu/bin/gcc -c main.c
      Time (mean ± σ):      15.7 ms ±   1.6 ms    [User: 11.0 ms, System: 4.6 ms]
