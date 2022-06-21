@@ -1,7 +1,7 @@
-project('squashfs-mount', ['c'], version: '0.1-dev', meson_version: '>=0.60')
+project('squashfs-mount', ['c'], version: '0.2.0-dev', meson_version: '>=0.60')
 
 # Look for libmount
-dep_libmount = dependency('mount', version : '>=2.23')
+dep_libmount = dependency('mount')
 
 exec = executable('squashfs-mount',
               sources: ['squashfs-mount.c'],
