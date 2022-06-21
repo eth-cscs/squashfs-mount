@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 
-#include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -16,14 +15,18 @@
 
 #include <libmount/libmount.h>
 
-#define exit_with_error(...) do { fprintf(stderr, __VA_ARGS__); exit(EXIT_FAILURE); } while (0)
+#define exit_with_error(str) do { fputs(str, stderr); exit(EXIT_FAILURE); } while (0)
 
 int main (int argc, char **argv) {
     struct libmnt_context *cxt;
     uid_t uid = getuid();
 
-    if (argc < 4)
-        exit_with_error("Usage: %s [squashfs file] [mountpoint] args...\n", argv[0]);
+    if (argc < 4) {
+        fputs("Usage: ", stderr);
+        fputs(argv[0], stderr);
+        fputs(" [squashfs file] [mountpoint] args...\n", stderr);
+        exit(EXIT_FAILURE);
+    }
 
     if (unshare(CLONE_NEWNS) != 0)
         exit_with_error("Failed to unshare the mount namespace\n");
