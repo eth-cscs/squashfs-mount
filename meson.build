@@ -6,6 +6,6 @@ dep_libmount = dependency('mount')
 exec = executable('squashfs-mount',
               sources: ['squashfs-mount.c'],
               dependencies: [dep_libmount],
-              # equivalent to: `chown root:root $exec; chmod +s $exec;` before installation.
-              install_mode: ['rwsr-sr-x', 'root', 'root'],
+              # equivalent to: `chown root:root $exec; chmod u+s $exec;` before installation.
+              install_mode: ['rwsr-xr-x', 'root', 'root'],
               install: true)
