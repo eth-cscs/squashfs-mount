@@ -26,26 +26,53 @@
 static void help(char const *argv0) {
   fputs("Usage: ", stderr);
   fputs(argv0, stderr);
-  fputs(" [squashfs file] [mountpoint] [command] [args...]\n", stderr);
+  fputs(
+      " <squashfs file> <mountpoint> [--offset=4096] <command> [args...]\n\n  The --offset=4096 option "
+      "translates to an offset=4096 mount option.\n",
+      stderr);
   exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv) {
   struct libmnt_context *cxt;
   uid_t uid = getuid();
+  char *program = argv[0];
+  int has_offset = 0;
 
-  for (int i = 0; i < argc; ++i) {
-    if (strncmp(argv[i], "-h", 2) == 0 || strncmp(argv[i], "--help", 6) == 0) {
-      help(argv[0]);
-    } else if (strncmp(argv[i], "-v", 2) == 0 ||
-               strncmp(argv[i], "--version", 9) == 0) {
+  argv++;
+  argc--;
+
+  // Only parse flags up to position 3, we don't want to do arg parsing of the
+  // command that is going to be executed.
+  for (int i = 0; i < argc && i < 3; ++i) {
+    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+      help(program);
+    } else if (strcmp(argv[i], "-v") == 0 ||
+               strcmp(argv[i], "--version") == 0) {
       puts(VERSION);
       exit(EXIT_SUCCESS);
     }
   }
 
-  if (argc < 4)
-    help(argv[0]);
+  // We need at least 3 args
+  if (argc < 3)
+    help(program);
+
+  char *squashfs_file = *argv++;
+  argc--;
+
+  char *mountpoint = *argv++;
+  argc--;
+
+  // The optional offset toggle.
+  if (strcmp(*argv, "--offset=4096") == 0) {
+    has_offset = 1;
+    argv++;
+    argc--;
+  }
+
+  if (argc == 0)
+    help(program);
 
   if (unshare(CLONE_NEWNS) != 0)
     exit_with_error("Failed to unshare the mount namespace\n");
@@ -66,13 +93,16 @@ int main(int argc, char **argv) {
   if (mnt_context_set_fstype(cxt, "squashfs") != 0)
     exit_with_error("Failed to set fstype to squashfs\n");
 
-  if (mnt_context_append_options(cxt, "loop,nosuid,nodev,ro") != 0)
-    exit_with_error("Failed to set target\n");
+  char const *mount_options =
+      has_offset ? "loop,nosuid,nodev,ro,offset=4096" : "loop,nosuid,nodev,ro";
 
-  if (mnt_context_set_source(cxt, argv[1]) != 0)
+  if (mnt_context_append_options(cxt, mount_options) != 0)
+    exit_with_error("Failed to set mount options\n");
+
+  if (mnt_context_set_source(cxt, squashfs_file) != 0)
     exit_with_error("Failed to set source\n");
 
-  if (mnt_context_set_target(cxt, argv[2]) != 0)
+  if (mnt_context_set_target(cxt, mountpoint) != 0)
     exit_with_error("Failed to set target\n");
 
   if (mnt_context_mount(cxt) != 0)
@@ -81,12 +111,5 @@ int main(int argc, char **argv) {
   if (setresuid(uid, uid, uid) != 0)
     exit_with_error("setresuid failed\n");
 
-    // If SQUASHFS_MOUNT_NO_NEW_PRIVS is defined, we effectively do not allow
-    // nested `squashfs-mount` calls
-#if defined(SQUASHFS_MOUNT_NO_NEW_PRIVS)
-  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
-    exit_with_error("prctl failed\n");
-#endif
-
-  return execvp(argv[3], argv + 3);
+  return execvp(argv[0], argv);
 }
