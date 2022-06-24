@@ -26,10 +26,10 @@
 static void help(char const *argv0) {
   fputs("Usage: ", stderr);
   fputs(argv0, stderr);
-  fputs(
-      " <squashfs file> <mountpoint> [--offset=4096] <command> [args...]\n\n  The --offset=4096 option "
-      "translates to an offset=4096 mount option.\n",
-      stderr);
+  fputs(" <squashfs file> <mountpoint> [--offset=4096] <command> [args...]\n\n "
+        " The --offset=4096 option "
+        "translates to an offset=4096 mount option.\n",
+        stderr);
   exit(EXIT_FAILURE);
 }
 
