@@ -21,7 +21,7 @@
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
-#define VERSION "0.2.1-dev"
+#define VERSION "0.2.1"
 
 static void help(char const *argv0) {
   fputs("Usage: ", stderr);
