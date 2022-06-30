@@ -1,4 +1,4 @@
-project('squashfs-mount', ['c'], version: files('VERSION'), meson_version: '>=0.60')
+project('squashfs-mount', ['c'], default_options : ['c_std=c99'], version: files('VERSION'), meson_version: '>=0.60')
 
 # Look for libmount
 dep_libmount = dependency('mount')
