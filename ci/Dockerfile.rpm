@@ -1,0 +1,7 @@
+# syntax=docker/dockerfile:1
+
+# For building and testing rpm files in GitHub Action pipeline.
+
+FROM registry.suse.com/bci/bci-base
+
+RUN zypper install -y libmount-devel gcc make rpm-build git sudo
