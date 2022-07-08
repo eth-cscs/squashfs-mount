@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include <err.h>
 #include <fcntl.h>
 #include <sched.h>
 #include <stdint.h>
@@ -9,6 +10,7 @@
 
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include <linux/loop.h>
@@ -36,6 +38,7 @@ int main(int argc, char **argv) {
   uid_t uid = getuid();
   char *program = argv[0];
   int has_offset = 0;
+  struct stat mnt_stat;
 
   argv++;
   argc--;
@@ -71,6 +74,20 @@ int main(int argc, char **argv) {
 
   if (argc == 0)
     help(program);
+
+  // Check that the mount point exists.
+  int mnt_status = stat(mountpoint, &mnt_stat);
+  if (mnt_status)
+    err(EXIT_FAILURE, "Invalid mount point \"%s\"", mountpoint);
+  if (!S_ISDIR(mnt_stat.st_mode))
+    errx(EXIT_FAILURE, "Invalid mount point \"%s\" is not a directory", mountpoint);
+
+  // Check that the input squashfs file exists.
+  int sqsh_status = stat(squashfs_file, &mnt_stat);
+  if (sqsh_status)
+    err(EXIT_FAILURE, "Invalid squashfs image file \"%s\"", squashfs_file);
+  if (!S_ISREG(mnt_stat.st_mode))
+    errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file", squashfs_file);
 
   if (unshare(CLONE_NEWNS) != 0)
     exit_with_error("Failed to unshare the mount namespace\n");
