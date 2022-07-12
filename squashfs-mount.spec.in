@@ -7,8 +7,6 @@ License:        BSD3
 URL:            https://github.com/eth-cscs/squashfs-mount
 Source0:        %{name}-%{version}.tar.gz
 
-BuildArch:  x86_64
-
 %description
 A small setuid binary that mounts a squashfs image in a mount namespace then executes a command as the normal user.
 
