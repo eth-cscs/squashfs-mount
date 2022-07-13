@@ -29,7 +29,7 @@ cp "${source_path}/Makefile" "${tar_path}"
 cp "${source_path}/LICENSE" "${tar_path}"
 
 tar_file="${build_path}/SOURCES/${pkg_name}.tar.gz"
-tar -czf "${tar_file}" --directory "${build_path} ${pkg_name}"
+tar -czf "${tar_file}" --directory "${build_path}" "${pkg_name}"
 
 spec_file="${build_path}/SPECS/squashfs-mount.spec"
 cp squashfs-mount.spec.in "${spec_file}"
