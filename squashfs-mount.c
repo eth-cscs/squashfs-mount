@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
@@ -17,9 +18,9 @@
 
 #include <libmount/libmount.h>
 
-#define exit_with_error(str)                                                   \
+#define exit_with_error(...)                                                   \
   do {                                                                         \
-    fputs(str, stderr);                                                        \
+    fprintf(stderr, __VA_ARGS__);                                              \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
@@ -39,6 +40,7 @@ int main(int argc, char **argv) {
   char *program = argv[0];
   int has_offset = 0;
   struct stat mnt_stat;
+  char err_buf[BUFSIZ] = {0};
 
   argv++;
   argc--;
@@ -77,17 +79,28 @@ int main(int argc, char **argv) {
 
   // Check that the mount point exists.
   int mnt_status = stat(mountpoint, &mnt_stat);
+
   if (mnt_status)
-    err(EXIT_FAILURE, "Invalid mount point \"%s\"", mountpoint);
+    exit_with_error("Invalid mount point \"%s\"", mountpoint);
+
   if (!S_ISDIR(mnt_stat.st_mode))
-    errx(EXIT_FAILURE, "Invalid mount point \"%s\" is not a directory", mountpoint);
+    exit_with_error("Invalid mount point \"%s\" is not a directory",
+                    mountpoint);
 
   // Check that the input squashfs file exists.
-  int sqsh_status = stat(squashfs_file, &mnt_stat);
+  int squashfs_fd = open(squashfs_file, O_RDONLY);
+
+  if (squashfs_fd < 0)
+    exit_with_error("Could not open squashfs file \"%s\"\n", squashfs_file);
+
+  int sqsh_status = fstat(squashfs_fd, &mnt_stat);
+
   if (sqsh_status)
-    err(EXIT_FAILURE, "Invalid squashfs image file \"%s\"", squashfs_file);
+    exit_with_error("Invalid squashfs image file \"%s\"\n", squashfs_file);
+
   if (!S_ISREG(mnt_stat.st_mode))
-    errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file", squashfs_file);
+    exit_with_error("Requested squashfs image \"%s\" is not a file\n",
+                    squashfs_file);
 
   if (unshare(CLONE_NEWNS) != 0)
     exit_with_error("Failed to unshare the mount namespace\n");
@@ -120,8 +133,23 @@ int main(int argc, char **argv) {
   if (mnt_context_set_target(cxt, mountpoint) != 0)
     exit_with_error("Failed to set target\n");
 
-  if (mnt_context_mount(cxt) != 0)
+  if (flock(squashfs_fd, LOCK_EX) != 0)
+    exit_with_error("Could not acquire a lock on the squashfs file\n");
+
+  int mount_exit_code = mnt_context_mount(cxt);
+  if (mount_exit_code != 0) {
+    mnt_context_get_excode(cxt, mount_exit_code, err_buf, sizeof(err_buf));
+    const char *tgt = mnt_context_get_target(cxt);
+    if (*err_buf != '\0' && tgt != NULL)
+      exit_with_error("%s: %s\n", tgt, err_buf);
     exit_with_error("Failed to mount\n");
+  }
+
+  if (flock(squashfs_fd, LOCK_UN) != 0)
+    exit_with_error("Could not release the lock on the squashfs file\n");
+
+  if (close(squashfs_fd) != 0)
+    exit_with_error("Could not close squashfs file\n");
 
   if (setresuid(uid, uid, uid) != 0)
     exit_with_error("setresuid failed\n");
