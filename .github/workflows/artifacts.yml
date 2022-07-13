@@ -1,0 +1,42 @@
+name: artifacts
+on: [push]
+
+## Tests that all artifacts can be built on every push.
+## Uploads the artifacts to the GitHub release page for tags.
+
+jobs:
+  rpm:
+    runs-on: ubuntu-20.04
+    container: registry.suse.com/bci/bci-base:15.4.27.8.3
+    steps:
+      - name: setup-environment
+        run: |
+          zypper install -y libmount-devel gcc make rpm-build git sudo
+      - name: clone
+        uses: actions/checkout@v2
+      - name: build-srpm
+        run: |
+          make rpm
+          sudo rpmbuild --rebuild ./rpmbuild/SRPMS/squashfs-mount*.src.rpm --define "_topdir $(pwd)/rpmbuild"
+          sudo rpm --install rpmbuild/RPMS/x86_64/squashfs-mount*.rpm
+          cp rpmbuild/SRPMS/* .
+      - name: upload-rpm
+        uses: actions/upload-artifact@v3
+        with:
+          name: rpm
+          path: squashfs-mount*.src.rpm
+
+  tag-release:
+    runs-on: ubuntu-20.04
+    needs: rpm
+    steps:
+      - name: download-artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: rpm
+      - name: release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files:
+            squashfs-mount*.src.rpm

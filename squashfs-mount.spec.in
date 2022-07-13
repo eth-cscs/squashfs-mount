@@ -1,0 +1,24 @@
+Name:           squashfs-mount
+Version:        SQMNT_VERSION
+Release:        1%{?dist}
+Summary:        setuid mount squashfs utility.
+
+License:        BSD3
+URL:            https://github.com/eth-cscs/squashfs-mount
+Source0:        %{name}-%{version}.tar.gz
+
+%description
+A small setuid binary that mounts a squashfs image in a mount namespace then executes a command as the normal user.
+
+%prep
+%setup -q
+
+%build
+make %{?_smp_mflags}
+
+%install
+sudo make install-suid prefix=%{_prefix} DESTDIR=%{buildroot}
+
+%files
+%license LICENSE
+%{_bindir}/%{name}

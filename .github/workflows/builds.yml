@@ -1,0 +1,36 @@
+name: builds
+on: [push]
+
+jobs:
+  makefile:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y util-linux libmount-dev
+      - name: build
+        run: |
+          sudo make install-suid
+      - name: test
+        run: . ci/test-mount.sh
+
+  meson:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build util-linux libmount-dev
+          # can't install as user because we need `sudo meson install` later
+          sudo pip3 install meson
+      - name: build
+        run: |
+          meson setup build
+          meson compile -C build
+          sudo meson install -C build
+      - name: test
+        run: . ci/test-mount.sh
+
