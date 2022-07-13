@@ -27,5 +27,10 @@ install-suid: install
 	chown root:root $(DESTDIR)$(bindir)/squashfs-mount
 	chmod u+s $(DESTDIR)$(bindir)/squashfs-mount
 
+rpm:
+	./generate-rpm.sh -b`pwd`/rpmbuild
+	rpmbuild -bs --define "_topdir `pwd`/rpmbuild" `pwd`/rpmbuild/SPECS/squashfs-mount.spec
+
 clean:
 	rm -f squashfs-mount squashfs-mount.o
+	rm -rf rpmbuild
