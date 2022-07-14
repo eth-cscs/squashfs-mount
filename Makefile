@@ -16,6 +16,8 @@ all: squashfs-mount
 %.o: %.c
 	$(CC) $(CFLAGS) $(SQUASHFS_MOUNT_CFLAGS) -c -o $@ $<
 
+squashfs-mount.o: VERSION
+
 squashfs-mount: squashfs-mount.o
 	$(CC) $< $(LDFLAGS) $(SQUASHFS_MOUNT_LDFLAGS) -o $@
 

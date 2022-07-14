@@ -97,6 +97,8 @@ issues:
 
 ## Install instructions
 
+### From Makefile
+
 Build and install without privileges and make it a root-owned setuid binary by hand:
 
 ```console
@@ -112,3 +114,15 @@ Or use the `install-suid` target:
 make install prefix=./install
 sudo make install-suid prefix=./install
 ```
+
+### As an RPM
+
+The `rpm` makefile target generates a source RPM, with `_topdir` in `$(pwd)/rpmbuild`.
+The source RPM can be compiled 
+```
+make rpm
+topdir="$(pwd)/rpmbuild"
+sudo rpmbuild --rebuild "$topdir"/SRPMS/squashfs-mount*.src.rpm --define "_topdir $topdir"
+sudo rpm --install "$topdir/RPMS/x86_64/squashfs-mount-*.x86_64.rpm"
+```
+The source RPM is distributed with tagged releases.
