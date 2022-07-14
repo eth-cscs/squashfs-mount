@@ -100,6 +100,9 @@ int main(int argc, char **argv) {
   if (setreuid(0, 0) != 0)
     exit_with_error("Failed to setreuid\n");
 
+  // Makes LIBMOUNT_DEBUG=... work.
+  mnt_init_debug(0);
+
   cxt = mnt_new_context();
 
   if (mnt_context_disable_mtab(cxt, 1) != 0)
