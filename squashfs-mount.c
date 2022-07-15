@@ -1,5 +1,8 @@
+/* #define FUSE_USE_VERSION 32 */
+
 #define _GNU_SOURCE
 
+/* #include "sqfs-util.h" */
 #include <err.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -16,6 +19,8 @@
 #include <linux/loop.h>
 
 #include <libmount/libmount.h>
+#include <squashfuse/squashfuse.h>
+#include "non-suid.h"
 
 #define exit_with_error(...)                                                   \
   do {                                                                         \
@@ -83,16 +88,19 @@ int main(int argc, char **argv) {
     errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file",
          squashfs_file);
 
+  // Set real user to root before creating the mount context, otherwise it
+  // fails.
+  if (setreuid(0, 0) != 0) {
+    fprintf(stderr, "Non-root user, mount image via squashfuse.\n");
+    return mount_squashfuse(squashfs_file, mountpoint, argv);
+  }
+
+  /* we are root */
   if (unshare(CLONE_NEWNS) != 0)
     err(EXIT_FAILURE, "Failed to unshare the mount namespace");
 
   if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) != 0)
     err(EXIT_FAILURE, "Failed to remount \"/\" with MS_SLAVE");
-
-  // Set real user to root before creating the mount context, otherwise it
-  // fails.
-  if (setreuid(0, 0) != 0)
-    err(EXIT_FAILURE, "Failed to setreuid\n");
 
   // Configure the mount
   // Makes LIBMOUNT_DEBUG=... work.

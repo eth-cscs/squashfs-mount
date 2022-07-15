@@ -1,0 +1,2 @@
+option('fuse_version', type : 'combo', choices : ['fuse3', 'fuse'], value : 'fuse3')
+option('suid', type : 'boolean', value : false)

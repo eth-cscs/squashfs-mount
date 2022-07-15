@@ -27,6 +27,8 @@ tar_path="${build_path}/${pkg_name}"
 mkdir -p "${tar_path}"
 
 cp "${source_path}/squashfs-mount.c" "${tar_path}"
+cp "${source_path}/non-suid.c" "${tar_path}"
+cp "${source_path}/non-suid.h" "${tar_path}"
 cp "${source_path}/Makefile" "${tar_path}"
 cp "${source_path}/LICENSE" "${tar_path}"
 cp "${source_path}/VERSION" "${tar_path}"

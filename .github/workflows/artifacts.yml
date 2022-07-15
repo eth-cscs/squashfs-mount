@@ -11,12 +11,15 @@ jobs:
     steps:
       - name: setup-environment
         run: |
-          zypper install -y libmount-devel gcc make rpm-build git sudo
+          zypper install -y libmount-devel  gcc make rpm-build git sudo wget fuse-devel gzip autoconf automake libtool xz-devel liblz4-devel libzstd-devel lzo-devel zlib-devel
+          wget https://github.com/vasi/squashfuse/archive/refs/tags/0.1.105.tar.gz && tar xf 0.1.105.tar.gz
+          cd squashfuse-0.1.105 || exit 1
+          ./autogen.sh && ./configure --prefix=/usr --enable-static=yes --enable-shared=no && sudo make install
       - name: clone
         uses: actions/checkout@v2
       - name: build-srpm
         run: |
-          make rpm
+          LDFLAGS="-llz4 -lzstd -llzma -llzo2 -lz" make rpm
           sudo rpmbuild --rebuild "$(find rpm/SRPMS -name '*.rpm' -type f -print -quit)" --define "_topdir $(pwd)/rpm"
           sudo rpm --install "$(find rpm/RPMS -name '*.rpm' -type f -print -quit)"
           find rpm -name '*.rpm' -type f -exec cp {} . \;
