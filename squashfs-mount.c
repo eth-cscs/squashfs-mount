@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     errx(EXIT_FAILURE, "Unknown flag %s", argv[i]);
   }
 
-  // We need at least 3 args
+  // We need [squashfs_file] [mountpoint] [command]
   if (argc < 3)
     help(program);
 
@@ -66,9 +66,6 @@ int main(int argc, char **argv) {
 
   char *mountpoint = *argv++;
   argc--;
-
-  if (argc == 0)
-    help(program);
 
   // Check that the mount point exists.
   int mnt_status = stat(mountpoint, &mnt_stat);
