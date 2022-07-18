@@ -6,9 +6,9 @@ bindir = $(exec_prefix)/bin
 
 CFLAGS ?= -Os -Wall -Wpedantic
 LDFLAGS ?= -Wl,--gc-sections,-s
-VERSION_FULL := $(shell cat VERSION)
-CFLAGS+=-DVERSION=\"$(VERSION_FULL)\"
-SQUASHFS_MOUNT_CFLAGS = -std=c99
+
+SQUASHFS_MOUNT_VERSION := $(shell cat VERSION)
+SQUASHFS_MOUNT_CFLAGS = -std=c99 -DVERSION=\"$(SQUASHFS_MOUNT_VERSION)\"
 SQUASHFS_MOUNT_LDFLAGS = -lmount
 
 all: squashfs-mount
