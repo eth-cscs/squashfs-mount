@@ -17,45 +17,47 @@
 
 #include <libmount/libmount.h>
 
-#define exit_with_error(str)                                                   \
+#define exit_with_error(...)                                                   \
   do {                                                                         \
-    fputs(str, stderr);                                                        \
+    fprintf(stderr, __VA_ARGS__);                                              \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
 static void help(char const *argv0) {
-  fputs("Usage: ", stderr);
-  fputs(argv0, stderr);
-  fputs(" <squashfs file> <mountpoint> [--offset=4096] <command> [args...]\n\n "
-        " The --offset=4096 option "
-        "translates to an offset=4096 mount option.\n",
-        stderr);
-  exit(EXIT_FAILURE);
+  exit_with_error(
+      "Usage: %s <squashfs file> <mountpoint> <command> [args...]\n", argv0);
 }
 
 int main(int argc, char **argv) {
   struct libmnt_context *cxt;
   uid_t uid = getuid();
   char *program = argv[0];
-  int has_offset = 0;
   struct stat mnt_stat;
 
   argv++;
   argc--;
 
-  // Only parse flags up to position 3, we don't want to do arg parsing of the
-  // command that is going to be executed.
-  for (int i = 0; i < argc && i < 3; ++i) {
-    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+  // Early exit for -h, --help, -v, --version.
+  for (int i = 0, num_positional = 0; i < argc && num_positional <= 2; ++i) {
+    char const *arg = argv[i];
+    // Skip positional args.
+    if (arg[0] != '-' || arg[1] == '\0') {
+      ++num_positional;
+      continue;
+    }
+    // Early exit on -h, --help, -v, --version
+    ++arg;
+    if (strcmp(arg, "h") == 0 || strcmp(arg, "-help") == 0)
       help(program);
-    } else if (strcmp(argv[i], "-v") == 0 ||
-               strcmp(argv[i], "--version") == 0) {
+    if (strcmp(arg, "v") == 0 || strcmp(arg, "-version") == 0) {
       puts(VERSION);
       exit(EXIT_SUCCESS);
     }
+    // Error on unrecognized flags.
+    errx(EXIT_FAILURE, "Unknown flag %s", argv[i]);
   }
 
-  // We need at least 3 args
+  // We need [squashfs_file] [mountpoint] [command]
   if (argc < 3)
     help(program);
 
@@ -65,72 +67,70 @@ int main(int argc, char **argv) {
   char *mountpoint = *argv++;
   argc--;
 
-  // The optional offset toggle.
-  if (strcmp(*argv, "--offset=4096") == 0) {
-    has_offset = 1;
-    argv++;
-    argc--;
-  }
-
-  if (argc == 0)
-    help(program);
-
   // Check that the mount point exists.
   int mnt_status = stat(mountpoint, &mnt_stat);
   if (mnt_status)
     err(EXIT_FAILURE, "Invalid mount point \"%s\"", mountpoint);
   if (!S_ISDIR(mnt_stat.st_mode))
-    errx(EXIT_FAILURE, "Invalid mount point \"%s\" is not a directory", mountpoint);
+    errx(EXIT_FAILURE, "Invalid mount point \"%s\" is not a directory",
+         mountpoint);
 
   // Check that the input squashfs file exists.
   int sqsh_status = stat(squashfs_file, &mnt_stat);
   if (sqsh_status)
     err(EXIT_FAILURE, "Invalid squashfs image file \"%s\"", squashfs_file);
   if (!S_ISREG(mnt_stat.st_mode))
-    errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file", squashfs_file);
+    errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file",
+         squashfs_file);
 
   if (unshare(CLONE_NEWNS) != 0)
-    exit_with_error("Failed to unshare the mount namespace\n");
+    err(EXIT_FAILURE, "Failed to unshare the mount namespace");
 
   if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) != 0)
-    exit_with_error("Failed to remount \"/\" with MS_SLAVE\n");
+    err(EXIT_FAILURE, "Failed to remount \"/\" with MS_SLAVE");
 
   // Set real user to root before creating the mount context, otherwise it
   // fails.
   if (setreuid(0, 0) != 0)
-    exit_with_error("Failed to setreuid\n");
+    err(EXIT_FAILURE, "Failed to setreuid\n");
 
+  // Configure the mount
   // Makes LIBMOUNT_DEBUG=... work.
   mnt_init_debug(0);
 
   cxt = mnt_new_context();
 
   if (mnt_context_disable_mtab(cxt, 1) != 0)
-    exit_with_error("Failed to disable mtab\n");
+    errx(EXIT_FAILURE, "Failed to disable mtab");
 
   if (mnt_context_set_fstype(cxt, "squashfs") != 0)
-    exit_with_error("Failed to set fstype to squashfs\n");
+    errx(EXIT_FAILURE, "Failed to set fstype to squashfs");
 
-  char const *mount_options =
-      has_offset ? "loop,nosuid,nodev,ro,offset=4096" : "loop,nosuid,nodev,ro";
-
-  if (mnt_context_append_options(cxt, mount_options) != 0)
-    exit_with_error("Failed to set mount options\n");
+  if (mnt_context_append_options(cxt, "loop,nosuid,nodev,ro") != 0)
+    errx(EXIT_FAILURE, "Failed to set mount options");
 
   if (mnt_context_set_source(cxt, squashfs_file) != 0)
-    exit_with_error("Failed to set source\n");
+    errx(EXIT_FAILURE, "Failed to set source");
 
   if (mnt_context_set_target(cxt, mountpoint) != 0)
-    exit_with_error("Failed to set target\n");
+    errx(EXIT_FAILURE, "Failed to set target");
 
-  if (mnt_context_mount(cxt) != 0)
-    exit_with_error("Failed to mount\n");
+  // Attempt to mount
+  int mount_exit_code = mnt_context_mount(cxt);
+  if (mount_exit_code != 0) {
+    char err_buf[BUFSIZ] = {0};
+    mnt_context_get_excode(cxt, mount_exit_code, err_buf, sizeof(err_buf));
+    const char *tgt = mnt_context_get_target(cxt);
+    if (*err_buf != '\0' && tgt != NULL)
+      exit_with_error("%s: %s\n", tgt, err_buf);
+    errx(EXIT_FAILURE, "Failed to mount");
+  }
 
   if (setresuid(uid, uid, uid) != 0)
-    exit_with_error("setresuid failed\n");
+    errx(EXIT_FAILURE, "setresuid failed");
 
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
-    exit_with_error("PR_SET_NO_NEW_PRIVS failed\n");
+    err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
 
   return execvp(argv[0], argv);
 }
