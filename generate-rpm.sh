@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 # By default use the current path as the root for source and build.
 # This can be configured using command line args for out of tree builds.
 source_path="$PWD"
@@ -19,7 +21,7 @@ done
 version="$(sed 's\-.*$\\' VERSION)"
 pkg_name="squashfs-mount-${version}"
 mkdir -p "${build_path}"
-(cd "${build_path}" && mkdir SOURCES BUILD RPMS SRPMS SPECS)
+(cd "${build_path}" && mkdir -p SOURCES BUILD RPMS SRPMS SPECS)
 
 tar_path="${build_path}/${pkg_name}"
 mkdir -p "${tar_path}"
