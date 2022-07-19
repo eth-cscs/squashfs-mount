@@ -11,6 +11,8 @@ SQUASHFS_MOUNT_VERSION := $(shell cat VERSION)
 SQUASHFS_MOUNT_CFLAGS = -std=c99 -DVERSION=\"$(SQUASHFS_MOUNT_VERSION)\"
 SQUASHFS_MOUNT_LDFLAGS = -lmount
 
+RPMBUILD ?= rpmbuild
+
 all: squashfs-mount
 
 %.o: %.c
@@ -29,10 +31,9 @@ install-suid: install
 	chown root:root $(DESTDIR)$(bindir)/squashfs-mount
 	chmod u+s $(DESTDIR)$(bindir)/squashfs-mount
 
-rpm:
-	./generate-rpm.sh -b`pwd`/rpmbuild
-	rpmbuild -bs --define "_topdir `pwd`/rpmbuild" `pwd`/rpmbuild/SPECS/squashfs-mount.spec
+rpm: squashfs-mount.c VERSION LICENSE Makefile
+	./generate-rpm.sh -b $@
+	$(RPMBUILD) -bs --define "_topdir $@" $@/SPECS/squashfs-mount.spec
 
 clean:
-	rm -f squashfs-mount squashfs-mount.o
-	rm -rf rpmbuild
+	rm -rf squashfs-mount squashfs-mount.o rpm

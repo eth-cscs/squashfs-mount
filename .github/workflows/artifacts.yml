@@ -17,9 +17,9 @@ jobs:
       - name: build-srpm
         run: |
           make rpm
-          sudo rpmbuild --rebuild ./rpmbuild/SRPMS/squashfs-mount*.src.rpm --define "_topdir $(pwd)/rpmbuild"
-          sudo rpm --install rpmbuild/RPMS/x86_64/squashfs-mount*.rpm
-          cp rpmbuild/SRPMS/* .
+          sudo rpmbuild --rebuild ./rpm/SRPMS/squashfs-mount*.src.rpm --define "_topdir $(pwd)/rpm"
+          sudo rpm --install rpm/RPMS/x86_64/squashfs-mount*.rpm
+          cp rpm/SRPMS/* .
       - name: upload-rpm
         uses: actions/upload-artifact@v3
         with:

@@ -1,6 +1,6 @@
 *.o
 *.squashfs
 squashfs-mount
-rpmbuild
+rpm
 *.sqsh
 test-dir
