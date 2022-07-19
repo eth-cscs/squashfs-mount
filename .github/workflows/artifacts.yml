@@ -7,7 +7,7 @@ on: [push, pull_request]
 jobs:
   rpm:
     runs-on: ubuntu-20.04
-    container: registry.suse.com/bci/bci-base:15.4.27.8.3
+    container: registry.suse.com/bci/bci-base:15.3
     steps:
       - name: setup-environment
         run: |
@@ -17,14 +17,14 @@ jobs:
       - name: build-srpm
         run: |
           make rpm
-          sudo rpmbuild --rebuild ./rpm/SRPMS/squashfs-mount*.src.rpm --define "_topdir $(pwd)/rpm"
-          sudo rpm --install rpm/RPMS/x86_64/squashfs-mount*.rpm
-          cp rpm/SRPMS/* .
+          sudo rpmbuild --rebuild "$(find rpm/SRPMS -name '*.rpm' -type f -print -quit)" --define "_topdir $(pwd)/rpm"
+          sudo rpm --install "$(find rpm/RPMS -name '*.rpm' -type f -print -quit)"
+          find rpm -name '*.rpm' -type f -exec cp {} . \;
       - name: upload-rpm
         uses: actions/upload-artifact@v3
         with:
           name: rpm
-          path: squashfs-mount*.src.rpm
+          path: '*.rpm'
 
   tag-release:
     runs-on: ubuntu-20.04
@@ -38,5 +38,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files:
-            squashfs-mount*.src.rpm
+          files: '*.rpm'
