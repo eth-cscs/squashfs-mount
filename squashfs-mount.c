@@ -57,8 +57,11 @@ int main(int argc, char **argv) {
     errx(EXIT_FAILURE, "Unknown flag %s", argv[i]);
   }
 
-  // We need [squashfs_file] [mountpoint] [command]
-  if (argc < 3)
+  // We need at least [squashfs_file] [mountpoint] [command] when not
+  // interactive and [squashfs_file] [mountpoint] when interactive.
+  int is_interactive = isatty(fileno(stdin));
+  int required_args = is_interactive ? 2 : 3;
+  if (argc < required_args)
     help(program);
 
   char *squashfs_file = *argv++;
@@ -66,6 +69,18 @@ int main(int argc, char **argv) {
 
   char *mountpoint = *argv++;
   argc--;
+
+  char **command = argv;
+
+  // If no command is given and run interactively, execute $SHELL or /bin/sh if
+  // not set.
+  char *default_args[] = {"/bin/sh", "-l", NULL};
+  if (argc == 0 && is_interactive) {
+    char *shell = getenv("SHELL");
+    if (shell != NULL && *shell != '\0')
+      default_args[0] = shell;
+    command = default_args;
+  }
 
   // Check that the mount point exists.
   int mnt_status = stat(mountpoint, &mnt_stat);
@@ -132,5 +147,5 @@ int main(int argc, char **argv) {
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
     err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
 
-  return execvp(argv[0], argv);
+  return execvp(command[0], command);
 }
