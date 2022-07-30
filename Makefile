@@ -35,7 +35,7 @@ install-suid: install
 	chown root:root $(DESTDIR)$(bindir)/squashfs-mount
 	chmod u+s $(DESTDIR)$(bindir)/squashfs-mount
 
-rpm: squashfs-mount.c unprivileged.c VERSION LICENSE Makefile
+rpm: squashfs-mount.c unprivileged.c unprivileged.h VERSION LICENSE Makefile
 	./generate-rpm.sh -b $@
 	$(RPMBUILD) -bs --define "_topdir $@" $@/SPECS/squashfs-mount.spec
 
