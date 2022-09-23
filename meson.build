@@ -16,7 +16,7 @@ else
 endif
 
 exec = executable('squashfs-mount',
-              sources: ['squashfs-mount.c', 'non-suid.c'],
+              sources: ['squashfs-mount.c', 'rootless.c'],
               dependencies: [dep_libmount, dep_sqfs, dep_fuse],
               c_args: ['-DVERSION="@0@"'.format(version)],
               # equivalent to: `chown root:root $exec; chmod u+s $exec;` before installation.

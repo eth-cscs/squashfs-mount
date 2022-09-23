@@ -1,7 +1,7 @@
 /** @file Functions required to run as unprivileged user.
  */
 
-#include "non-suid.h"
+#include "rootless.h"
 #define _GNU_SOURCE
 #include <squashfuse/ll.h>
 
@@ -15,6 +15,7 @@
 #include <sched.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <err.h>
 
 #define exit_with_error(...)                                                   \
   do {                                                                         \
@@ -27,10 +28,11 @@ static void unshare_mount_map_root() {
 
   int uid = getuid(); // get current uid
   int gid = getgid();
-  if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
-    printf("unshare(CLONE_NEWUSER | CLONE_NEWUSER) failed");
-    exit(1);
-  }
+  if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0)
+    err(EXIT_FAILURE, "unshare(CLONE_NEWUSER | CLONE_NEWUSER) failed");
+
+  if (mount(NULL, "/", NULL, MS_SHARED | MS_REC, NULL) != 0)
+    err(EXIT_FAILURE, "Failed to remount \"/\" with MS_SLAVE");
 
   // map current user id to root
   char buf[256];

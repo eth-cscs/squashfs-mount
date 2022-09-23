@@ -20,7 +20,7 @@
 
 #include <libmount/libmount.h>
 #include <squashfuse/squashfuse.h>
-#include "non-suid.h"
+#include "rootless.h"
 
 #define exit_with_error(...)                                                   \
   do {                                                                         \
