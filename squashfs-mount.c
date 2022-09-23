@@ -20,7 +20,10 @@
 
 #include <libmount/libmount.h>
 #include <squashfuse/squashfuse.h>
+
+#ifdef ROOTLESS
 #include "rootless.h"
+#endif
 
 #define exit_with_error(...)                                                   \
   do {                                                                         \
@@ -91,8 +94,12 @@ int main(int argc, char **argv) {
   // Set real user to root before creating the mount context, otherwise it
   // fails.
   if (setreuid(0, 0) != 0) {
+#ifdef ROOTLESS
     fprintf(stderr, "Non-root user, mount image via squashfuse.\n");
     return mount_squashfuse(squashfs_file, mountpoint, argv);
+#else
+    err(EXIT_FAILURE, "Insufficient permissions.");
+#endif
   }
 
   /* we are root */
