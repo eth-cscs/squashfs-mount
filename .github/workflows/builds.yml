@@ -38,7 +38,7 @@ jobs:
           sudo meson install -C build
       - name: test
         run: . ci/test-mount.sh
-  meson-nonsuid:
+  meson-rootless:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
