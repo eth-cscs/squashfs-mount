@@ -19,7 +19,6 @@
 #include <linux/loop.h>
 
 #include <libmount/libmount.h>
-#include <squashfuse/squashfuse.h>
 
 #ifdef ROOTLESS
 #include "rootless.h"
