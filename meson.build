@@ -6,24 +6,24 @@ dep_libmount = dependency('mount')
 dep_sqfs = dependency('squashfuse_ll')
 
 # get fuse_version from options
-# TODO parse FUSE_USE_VERSION in config.h from squashfuse instead
 dep_fuse = dependency(get_option('fuse_version'), method: 'pkg-config')
 
 if(get_option('suid'))
   install_mode =  ['rwsr-xr-x', 'root', 'root']
   c_args = ['-DVERSION="@0@"'.format(version)]
   sources = ['squashfs-mount.c']
-else
-  install_mode = []
-  c_args = ['-DVERSION="@0@"'.format(version), '-DROOTLESS']
-  sources = ['squashfs-mount.c', 'rootless.c']
+  exec = executable('squashfs-mount',
+                    sources: sources,
+                    dependencies: [dep_libmount],
+                    c_args: c_args,
+                    # equivalent to: `chown root:root $exec; chmod u+s $exec;` before installation.
+                    install_mode: install_mode,
+                    install: true)
 endif
 
-
-exec = executable('squashfs-mount',
-              sources: sources,
-              dependencies: [dep_libmount, dep_sqfs, dep_fuse],
-              c_args: c_args,
-              # equivalent to: `chown root:root $exec; chmod u+s $exec;` before installation.
-              install_mode: install_mode,
-              install: true)
+executable('squashfs-mount-rootless',
+           sources: ['squashfs-mount-rootless.c', 'rootless.c'],
+           dependencies: [dep_libmount, dep_sqfs, dep_fuse],
+           c_args: ['-DVERSION="@0@"'.format(version)],
+           install_mode: [],
+           install: true)

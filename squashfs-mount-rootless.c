@@ -1,5 +1,8 @@
+/* #define FUSE_USE_VERSION 32 */
+
 #define _GNU_SOURCE
 
+/* #include "sqfs-util.h" */
 #include <err.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -17,6 +20,8 @@
 
 #include <libmount/libmount.h>
 
+#include "rootless.h"
+
 #define exit_with_error(...)                                                   \
   do {                                                                         \
     fprintf(stderr, __VA_ARGS__);                                              \
@@ -29,8 +34,6 @@ static void help(char const *argv0) {
 }
 
 int main(int argc, char **argv) {
-  struct libmnt_context *cxt;
-  uid_t uid = getuid();
   char *program = argv[0];
   struct stat mnt_stat;
 
@@ -83,54 +86,5 @@ int main(int argc, char **argv) {
     errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file",
          squashfs_file);
 
-  if (unshare(CLONE_NEWNS) != 0)
-    err(EXIT_FAILURE, "Failed to unshare the mount namespace");
-
-  if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) != 0)
-    err(EXIT_FAILURE, "Failed to remount \"/\" with MS_SLAVE");
-
-  // Set real user to root before creating the mount context, otherwise it
-  // fails.
-  if (setreuid(0, 0) != 0)
-    err(EXIT_FAILURE, "Failed to setreuid\n");
-
-  // Configure the mount
-  // Makes LIBMOUNT_DEBUG=... work.
-  mnt_init_debug(0);
-
-  cxt = mnt_new_context();
-
-  if (mnt_context_disable_mtab(cxt, 1) != 0)
-    errx(EXIT_FAILURE, "Failed to disable mtab");
-
-  if (mnt_context_set_fstype(cxt, "squashfs") != 0)
-    errx(EXIT_FAILURE, "Failed to set fstype to squashfs");
-
-  if (mnt_context_append_options(cxt, "loop,nosuid,nodev,ro") != 0)
-    errx(EXIT_FAILURE, "Failed to set mount options");
-
-  if (mnt_context_set_source(cxt, squashfs_file) != 0)
-    errx(EXIT_FAILURE, "Failed to set source");
-
-  if (mnt_context_set_target(cxt, mountpoint) != 0)
-    errx(EXIT_FAILURE, "Failed to set target");
-
-  // Attempt to mount
-  int mount_exit_code = mnt_context_mount(cxt);
-  if (mount_exit_code != 0) {
-    char err_buf[BUFSIZ] = {0};
-    mnt_context_get_excode(cxt, mount_exit_code, err_buf, sizeof(err_buf));
-    const char *tgt = mnt_context_get_target(cxt);
-    if (*err_buf != '\0' && tgt != NULL)
-      exit_with_error("%s: %s\n", tgt, err_buf);
-    errx(EXIT_FAILURE, "Failed to mount");
-  }
-
-  if (setresuid(uid, uid, uid) != 0)
-    errx(EXIT_FAILURE, "setresuid failed");
-
-  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
-    err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
-
-  return execvp(argv[0], argv);
+  return mount_squashfuse(squashfs_file, mountpoint, argv);
 }
