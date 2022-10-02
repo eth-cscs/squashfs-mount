@@ -25,3 +25,4 @@ make install-suid prefix=%{_prefix} DESTDIR=%{buildroot}
 %files
 %license LICENSE
 %{_bindir}/%{name}
+%{_bindir}/%{name}-rootless

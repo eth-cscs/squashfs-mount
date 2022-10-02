@@ -27,6 +27,7 @@ tar_path="${build_path}/${pkg_name}"
 mkdir -p "${tar_path}"
 
 cp "${source_path}/squashfs-mount.c" "${tar_path}"
+cp "${source_path}/squashfs-mount-rootless.c" "${tar_path}"
 cp "${source_path}/rootless.c" "${tar_path}"
 cp "${source_path}/rootless.h" "${tar_path}"
 cp "${source_path}/Makefile" "${tar_path}"

@@ -22,20 +22,26 @@ all: squashfs-mount
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(SQFS_CFLAGS) $(SQUASHFS_MOUNT_CFLAGS) -c -o $@ $<
-squashfs-mount.o: VERSION rootless.h
+squashfs-mount.o: VERSION
 
-squashfs-mount: squashfs-mount.o rootless.o
+squashfs-mount: squashfs-mount.o
 		$(CC) $^ $(LDFLAGS) $(SQUASHFS_MOUNT_LDFLAGS) -o $@
 
-install: squashfs-mount
+squashfs-mount-rootless.o: VERSION rootless.h
+
+squashfs-mount-rootless: squashfs-mount.o rootless.o
+		$(CC) $^ $(LDFLAGS) $(SQUASHFS_MOUNT_LDFLAGS) -o $@
+
+install: squashfs-mount squashfs-mount-rootless
 	mkdir -p $(DESTDIR)$(bindir)
 	cp -p squashfs-mount $(DESTDIR)$(bindir)
+	cp -p squashfs-mount-rootless $(DESTDIR)$(bindir)
 
 install-suid: install
 	chown root:root $(DESTDIR)$(bindir)/squashfs-mount
 	chmod u+s $(DESTDIR)$(bindir)/squashfs-mount
 
-rpm: squashfs-mount.c rootless.c rootless.h VERSION LICENSE Makefile
+rpm: squashfs-mount.c squashfs-mount-rootless.c rootless.c rootless.h VERSION LICENSE Makefile
 	./generate-rpm.sh -b $@
 	$(RPMBUILD) -bs --define "_topdir $@" $@/SPECS/squashfs-mount.spec
 
