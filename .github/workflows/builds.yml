@@ -57,4 +57,4 @@ jobs:
           meson compile -C build
           sudo meson install -C build
       - name: test
-        run: . ci/test-mount.sh
+        run: . ci/test-mount-rootless.sh
