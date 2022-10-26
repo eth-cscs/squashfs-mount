@@ -60,8 +60,8 @@ static void unshare_mount_map_root() {
 /* go back to effective user */
 static void map_effective_user(int uid, int gid) {
 
-  if (unshare(CLONE_NEWUSER) != 0) {
-    exit_with_error("unshare(CLONE_NEWUSER) failed");
+  if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
+    exit_with_error("unshare(CLONE_NEWUSER|CLONE_NEWNS) failed");
   }
 
   // map current user id to root
