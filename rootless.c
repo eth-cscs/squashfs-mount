@@ -12,10 +12,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <err.h>
 #include <sched.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
-#include <err.h>
 
 #define exit_with_error(...)                                                   \
   do {                                                                         \
@@ -186,7 +186,8 @@ void do_sqfs_mount(const char image[], int offset, const char mountpoint[]) {
       /* startup fuse */
       sqfs_ll_chan ch;
       /* err = -1; */
-      sqfs_err sqfs_ret = sqfs_ll_mount(&ch, mountpoint, &args, &sqfs_ll_ops, sizeof(sqfs_ll_ops), ll);
+      sqfs_err sqfs_ret = sqfs_ll_mount(&ch, mountpoint, &args, &sqfs_ll_ops,
+                                        sizeof(sqfs_ll_ops), ll);
       if (sqfs_ret == SQFS_OK) {
 
         if (sqfs_ll_daemonize(true /*foreground*/) != -1) {
@@ -213,29 +214,29 @@ void do_sqfs_mount(const char image[], int offset, const char mountpoint[]) {
         sqfs_ll_unmount(&ch, mountpoint);
       } else {
         switch (sqfs_ret) {
-          case SQFS_ERR: {
-            printf("SQFS_ERR\n");
-            break;
-          }
-          case SQFS_BADFORMAT: {
-            printf("SQFS_BADFORMAT (unsupported file format)\n");
-            break;
-          }
-          case SQFS_BADVERSION: {
-            printf("SQFS_BADVERSION\n");
-            break;
-          }
-          case SQFS_BADCOMP: {
-            printf("SQFS_BADCOMP\n");
-            break;
-          }
-          case SQFS_UNSUP: {
-            printf("SQFS_UNSUP, unsupported feature\n");
-            break;
-          }
-          case SQFS_OK: {
-            break;
-          }
+        case SQFS_ERR: {
+          printf("SQFS_ERR\n");
+          break;
+        }
+        case SQFS_BADFORMAT: {
+          printf("SQFS_BADFORMAT (unsupported file format)\n");
+          break;
+        }
+        case SQFS_BADVERSION: {
+          printf("SQFS_BADVERSION\n");
+          break;
+        }
+        case SQFS_BADCOMP: {
+          printf("SQFS_BADCOMP\n");
+          break;
+        }
+        case SQFS_UNSUP: {
+          printf("SQFS_UNSUP, unsupported feature\n");
+          break;
+        }
+        case SQFS_OK: {
+          break;
+        }
         }
         exit_with_error("sqfs_ll_mount failed.\n");
       }
@@ -261,8 +262,8 @@ void do_sqfs_mount(const char image[], int offset, const char mountpoint[]) {
   }
 }
 
-int mount_squashfuse(const char *sqfs_file, const char *mountpoint, char** argv)
-{
+int mount_squashfuse(const char *sqfs_file, const char *mountpoint,
+                     char **argv) {
   int uid = getuid();
   int gid = getgid();
 
