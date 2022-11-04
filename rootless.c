@@ -17,6 +17,9 @@
 #include <sys/mount.h>
 #include <sys/prctl.h>
 
+#include "uenv_vars.h"
+
+
 #define exit_with_error(...)                                                   \
   do {                                                                         \
     fprintf(stderr, __VA_ARGS__);                                              \
@@ -276,6 +279,13 @@ int mount_squashfuse(const char *sqfs_file, const char *mountpoint,
   // return to normal user by mapping root to the effective user
   // NOTE: additional groups are lost
   map_effective_user(uid, gid);
+
+  // set env variables allowing to detect the spank plugin if
+  // squashfs file has been mounted before calling srun,etc.
+  if (setenv(ENV_MOUNT_FILE, sqfs_file, 1 /* overwite if exists */) ||
+      setenv(ENV_MOUNT_POINT, mountpoint, 1 /* overwrite if exists */)) {
+    err(EXIT_FAILURE, "failed to set environment variables");
+  }
 
   return execvp(argv[0], argv);
 }

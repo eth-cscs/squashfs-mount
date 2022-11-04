@@ -86,5 +86,7 @@ int main(int argc, char **argv) {
     errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file",
          squashfs_file);
 
+
+
   return mount_squashfuse(squashfs_file, mountpoint, argv);
 }
