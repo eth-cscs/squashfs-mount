@@ -17,6 +17,9 @@
 
 #include <libmount/libmount.h>
 
+#define ENV_MOUNT_FILE  "UENV_MOUNT_FILE"
+#define ENV_MOUNT_POINT "UENV_MOUNT_POINT"
+
 #define exit_with_error(...)                                                   \
   do {                                                                         \
     fprintf(stderr, __VA_ARGS__);                                              \
@@ -131,6 +134,13 @@ int main(int argc, char **argv) {
 
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
     err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
+
+  // set env variables allowing to detect the spank plugin if
+  // squashfs file has been mounted before calling srun,etc.
+  if (setenv(ENV_MOUNT_FILE, squashfs_file, 1 /* overwite if exists */) ||
+      setenv(ENV_MOUNT_POINT, mountpoint, 1 /* overwrite if exists */)) {
+    err(EXIT_FAILURE, "failed to set environment variables");
+  }
 
   return execvp(argv[0], argv);
 }
