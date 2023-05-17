@@ -1,24 +1,21 @@
 #define _GNU_SOURCE
-
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sched.h>
-#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include <linux/loop.h>
+#include <unistd.h>
 
 #include <libmount/libmount.h>
 
-#define ENV_MOUNT_FILE  "UENV_MOUNT_FILE"
-#define ENV_MOUNT_POINT "UENV_MOUNT_POINT"
+#define ENV_MOUNT_LIST "UENV_MOUNT_LIST"
 
 #define exit_with_error(...)                                                   \
   do {                                                                         \
@@ -28,48 +25,47 @@
 
 static void help(char const *argv0) {
   exit_with_error(
-      "Usage: %s <squashfs file> <mountpoint> <command> [args...]\n", argv0);
+      "Usage: %s img1:mnt1 img2:mnt2 .. imgN:mntN -- <command> [args...]\n",
+      argv0);
 }
 
-int main(int argc, char **argv) {
-  struct libmnt_context *cxt;
-  uid_t uid = getuid();
-  char *program = argv[0];
+typedef struct {
+  char squashfs_file[PATH_MAX];
+  char mountpoint[PATH_MAX];
+} mount_entry_t;
+
+static void unshare_mntns_and_become_root() {
+  if (unshare(CLONE_NEWNS) != 0)
+    err(EXIT_FAILURE, "Failed to unshare the mount namespace");
+
+  if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) != 0)
+    err(EXIT_FAILURE, "Failed to remount \"/\" with MS_SLAVE");
+
+  // Set real user to root before creating the mount context, otherwise it
+  // fails.
+  if (setreuid(0, 0) != 0)
+    err(EXIT_FAILURE, "Failed to setreuid\n");
+
+  // Configure the mount
+  // Makes LIBMOUNT_DEBUG=... work.
+  mnt_init_debug(0);
+}
+
+/// set real, effective, saved user id to original user and allow no new
+/// priviledges
+static void return_to_user_and_no_new_privs(int uid) {
+  if (setresuid(uid, uid, uid) != 0)
+    errx(EXIT_FAILURE, "setresuid failed");
+
+  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
+    err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
+}
+
+/// check if squashsfs_file is an existent file, mounpoint is an existent
+/// directory
+static void validate_file_and_mountpoint(char const *squashfs_file,
+                                         char const *mountpoint) {
   struct stat mnt_stat;
-
-  argv++;
-  argc--;
-
-  // Early exit for -h, --help, -v, --version.
-  for (int i = 0, num_positional = 0; i < argc && num_positional <= 2; ++i) {
-    char const *arg = argv[i];
-    // Skip positional args.
-    if (arg[0] != '-' || arg[1] == '\0') {
-      ++num_positional;
-      continue;
-    }
-    // Early exit on -h, --help, -v, --version
-    ++arg;
-    if (strcmp(arg, "h") == 0 || strcmp(arg, "-help") == 0)
-      help(program);
-    if (strcmp(arg, "v") == 0 || strcmp(arg, "-version") == 0) {
-      puts(VERSION);
-      exit(EXIT_SUCCESS);
-    }
-    // Error on unrecognized flags.
-    errx(EXIT_FAILURE, "Unknown flag %s", argv[i]);
-  }
-
-  // We need [squashfs_file] [mountpoint] [command]
-  if (argc < 3)
-    help(program);
-
-  char *squashfs_file = *argv++;
-  argc--;
-
-  char *mountpoint = *argv++;
-  argc--;
-
   // Check that the mount point exists.
   int mnt_status = stat(mountpoint, &mnt_stat);
   if (mnt_status)
@@ -85,21 +81,12 @@ int main(int argc, char **argv) {
   if (!S_ISREG(mnt_stat.st_mode))
     errx(EXIT_FAILURE, "Requested squashfs image \"%s\" is not a file",
          squashfs_file);
+}
 
-  if (unshare(CLONE_NEWNS) != 0)
-    err(EXIT_FAILURE, "Failed to unshare the mount namespace");
+static void do_mount(const mount_entry_t *entry) {
+  struct libmnt_context *cxt;
 
-  if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) != 0)
-    err(EXIT_FAILURE, "Failed to remount \"/\" with MS_SLAVE");
-
-  // Set real user to root before creating the mount context, otherwise it
-  // fails.
-  if (setreuid(0, 0) != 0)
-    err(EXIT_FAILURE, "Failed to setreuid\n");
-
-  // Configure the mount
-  // Makes LIBMOUNT_DEBUG=... work.
-  mnt_init_debug(0);
+  validate_file_and_mountpoint(entry->squashfs_file, entry->mountpoint);
 
   cxt = mnt_new_context();
 
@@ -112,10 +99,10 @@ int main(int argc, char **argv) {
   if (mnt_context_append_options(cxt, "loop,nosuid,nodev,ro") != 0)
     errx(EXIT_FAILURE, "Failed to set mount options");
 
-  if (mnt_context_set_source(cxt, squashfs_file) != 0)
+  if (mnt_context_set_source(cxt, entry->squashfs_file) != 0)
     errx(EXIT_FAILURE, "Failed to set source");
 
-  if (mnt_context_set_target(cxt, mountpoint) != 0)
+  if (mnt_context_set_target(cxt, entry->mountpoint) != 0)
     errx(EXIT_FAILURE, "Failed to set target");
 
   // Attempt to mount
@@ -128,19 +115,149 @@ int main(int argc, char **argv) {
       exit_with_error("%s: %s\n", tgt, err_buf);
     errx(EXIT_FAILURE, "Failed to mount");
   }
+}
 
-  if (setresuid(uid, uid, uid) != 0)
-    errx(EXIT_FAILURE, "setresuid failed");
+static void do_mount_loop(const mount_entry_t *mount_entries, int n) {
 
-  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
-    err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
+  // exit if there is a duplicate  in (sorted) array of mountpoints
+  for (int i = 0; i < n - 1; ++i) {
+    if (strcmp(mount_entries[i].mountpoint, mount_entries[i + 1].mountpoint) ==
+        0) {
+      errx(EXIT_FAILURE, "duplicate mountpoint: %s",
+           mount_entries[i].mountpoint);
+    }
+  }
 
-  // set env variables allowing to detect the spank plugin if
-  // squashfs file has been mounted before calling srun,etc.
-  if (setenv(ENV_MOUNT_FILE, squashfs_file, 1 /* overwite if exists */) ||
-      setenv(ENV_MOUNT_POINT, mountpoint, 1 /* overwrite if exists */)) {
+  // check for duplicate image -> warning
+  for (int i = 0; i < n; ++i) {
+    for (int j = i + 1; j < n; ++j) {
+      if (strcmp(mount_entries[i].squashfs_file,
+                 mount_entries[j].squashfs_file) == 0) {
+        fprintf(stderr, "WARNING: duplicate image: %s\n",
+                mount_entries[i].squashfs_file);
+      }
+    }
+  }
+
+  for (int i = 0; i < n; ++i) {
+    do_mount(mount_entries + i);
+  }
+}
+
+/// lexical sorting for mountpoint
+static int compare_mountpoint(const void *p1, const void *p2) {
+  return strcmp(((const mount_entry_t *)p1)->mountpoint,
+                ((const mount_entry_t *)p2)->mountpoint);
+}
+
+/// split by `:` and convert to abspath, sort by mountpoint
+static mount_entry_t *parse_mount_entries(char **argv, int argc) {
+  // TODO `:` in argv get overwritten by `\0` in this function, is this OK?
+  mount_entry_t *mount_entries = malloc(sizeof(mount_entry_t) * argc);
+
+  for (int i = 0; i < argc; ++i) {
+    char *mnt, *file;
+    if (!(file = strtok(argv[i], ":")) || !(mnt = strtok(NULL, ":"))) {
+      errx(EXIT_FAILURE, "invalid format %s", argv[i]);
+    } else {
+      if (strtok(NULL, ":")) {
+        // expect file:mountpoint, strtok must return NULL when called once more
+        errx(EXIT_FAILURE, "invalid format %s", argv[i]);
+      }
+    }
+
+    strcpy(mount_entries[i].squashfs_file, file);
+    strcpy(mount_entries[i].mountpoint, mnt);
+
+    // convert to absolute paths (if needed)
+    // absolute paths are skipped, since we allow to do nested mounts (for given
+    // absolute), they won't be resolvable via realpath, since in general
+    // non-existent outside the image
+    if ((file[0] != '/') &&
+        realpath(file, mount_entries[i].squashfs_file) == NULL) {
+      errx(EXIT_FAILURE, "Failed to obtain realpath of %s, error: %s", file,
+           strerror(errno));
+    }
+    if ((mnt[0] != '/') && realpath(mnt, mount_entries[i].mountpoint) == NULL) {
+      errx(EXIT_FAILURE, "Failed to obtain realpath of %s, error: %s", mnt,
+           strerror(errno));
+    }
+  }
+
+  // sort by mountpoint
+  qsort(mount_entries, argc, sizeof(mount_entry_t), compare_mountpoint);
+
+  return mount_entries;
+}
+
+int main(int argc, char **argv) {
+  char **fwd_argv;
+  mount_entry_t *mount_entries;
+  uid_t uid = getuid();
+
+  char *program = argv[0];
+
+  argv++;
+  argc--;
+
+  int positional_args = 0;
+  // Early exit for -h, --help, -v, --version.
+  for (int i = 0; i < argc; ++i, positional_args++) {
+    char const *arg = argv[i];
+    // Skip positional args.
+    if (arg[0] != '-' || arg[1] == '\0') {
+      continue;
+    }
+
+    // finish parsing after -- flag
+    if (strcmp(arg, "--") == 0) {
+      break;
+    }
+    if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0)
+      help(program);
+    if (strcmp(arg, "-v") == 0 || strcmp(arg, "--version") == 0) {
+      puts(VERSION);
+      exit(EXIT_SUCCESS);
+    }
+    // Error on unrecognized flags.
+    errx(EXIT_FAILURE, "Unknown flag %s", argv[i]);
+  }
+
+  if (argc <= positional_args + 1) {
+    exit_with_error("no command given");
+  }
+
+  fwd_argv = argv + (positional_args + 1);
+  // if no mountpoints given, run command directly
+  if (positional_args == 0) {
+    fprintf(stderr, "Warning no <image>:<mountpoint> argument was given.\n");
+    return execvp(fwd_argv[0], fwd_argv);
+  }
+
+  mount_entries = parse_mount_entries(argv, positional_args);
+
+  unshare_mntns_and_become_root();
+  do_mount_loop(mount_entries, positional_args);
+  // return to user, set PR_SET_NO_NEW_PRIVS
+  return_to_user_and_no_new_privs(uid);
+
+  // export environment variable with mounted images (for slurm plugin)
+  char *uenv_mount_list = malloc(sizeof(char) * 2 * positional_args * PATH_MAX);
+  sprintf(uenv_mount_list, "file://%s:%s", mount_entries[0].squashfs_file,
+          mount_entries[0].mountpoint);
+  for (int i = 1; i < positional_args; ++i) {
+    char buf[2 * PATH_MAX + 8];
+    sprintf(buf, ",file://%s:%s", mount_entries[i].squashfs_file,
+            mount_entries[i].mountpoint);
+    strcat(uenv_mount_list, buf);
+  }
+  if (setenv(ENV_MOUNT_LIST, uenv_mount_list, 1)) {
     err(EXIT_FAILURE, "failed to set environment variables");
   }
 
-  return execvp(argv[0], argv);
+  // cleanup
+  free(uenv_mount_list);
+  free(mount_entries);
+
+  return execvp(fwd_argv[0], fwd_argv);
 }
