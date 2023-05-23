@@ -25,7 +25,7 @@
 
 static void help(char const *argv0) {
   exit_with_error(
-      "Usage: %s img1:mnt1 img2:mnt2 .. imgN:mntN -- <command> [args...]\n",
+      "Usage: %s <image>:<mountpoint> [<image>:<mountpoint>]...  -- <command> [args...]\n",
       argv0);
 }
 
