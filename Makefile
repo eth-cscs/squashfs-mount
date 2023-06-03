@@ -4,7 +4,7 @@ prefix = /usr/local
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 
-CFLAGS ?= -Os -Wall -Wpedantic
+CFLAGS ?= -Os -Wall -Wpedantic -Wextra -Wformat-overflow -Werror-implicit-function-declaration
 LDFLAGS ?= -Wl,--gc-sections,-s
 
 SQUASHFS_MOUNT_VERSION := $(shell cat VERSION)
