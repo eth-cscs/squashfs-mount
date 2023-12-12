@@ -1,5 +1,7 @@
 name: artifacts
-on: [push, pull_request]
+on:
+  release:
+    types: [published]
 
 ## Tests that all artifacts can be built on every push.
 ## Uploads the artifacts to the GitHub release page for tags.

@@ -2,33 +2,6 @@ name: builds
 on: [push, pull_request]
 
 jobs:
-  makefile:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: setup
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y util-linux libmount-dev squashfs-tools wget
-          sudo mkdir -p /user-environment
-          sudo mkdir -p /user-profilers
-          sudo mkdir -p /user-tools
-          (
-            cd /
-            # download bash-bats
-            sudo curl -L https://github.com/bats-core/bats-core/archive/refs/tags/v1.9.0.tar.gz | sudo tar xz
-            sudo mkdir bats-helpers
-            sudo git clone --depth 1 https://github.com/bats-core/bats-assert.git bats-helpers/bats-assert
-            sudo git clone --depth 1 https://github.com/bats-core/bats-support.git bats-helpers/bats-support
-          )
-      - name: build
-        run: |
-          sudo make install-suid
-      - name: test
-        run: |
-          export BATS_LIB_PATH=/bats-helpers
-          /bats-core-1.9.0/bin/bats ci/tests.bats
-
   meson:
     runs-on: ubuntu-20.04
     steps:
@@ -36,7 +9,7 @@ jobs:
       - name: setup
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ninja-build util-linux libmount-dev squashfs-tools
+          sudo apt-get install -y ninja-build util-linux libmount-dev squashfs-tools libfuse2 libfuse-dev
           # can't install as user because we need `sudo meson install` later
           sudo pip3 install meson
           sudo mkdir -p /user-environment
@@ -50,12 +23,25 @@ jobs:
             sudo git clone --depth 1 https://github.com/bats-core/bats-assert.git bats-helpers/bats-assert
             sudo git clone --depth 1 https://github.com/bats-core/bats-support.git bats-helpers/bats-support
           )
+          (
+            sudo curl -L https://github.com/vasi/squashfuse/releases/download/0.5.0/squashfuse-0.5.0.tar.gz  | sudo tar xz
+            cd squashfuse-0.5.0 || exit 1
+            ./configure
+            sudo make install
+          )
       - name: build
         run: |
           meson setup build
           meson compile -C build
           sudo meson install -C build
-      - name: test
+      - name: test suid
         run: |
           export BATS_LIB_PATH=/bats-helpers
+          export SQFSEXE=squashfs-mount
+          /bats-core-1.9.0/bin/bats ci/tests.bats
+      - name: test rootless
+        run: |
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+          export BATS_LIB_PATH=/bats-helpers
+          export SQFSEXE=squashfs-mount-rootless
           /bats-core-1.9.0/bin/bats ci/tests.bats
