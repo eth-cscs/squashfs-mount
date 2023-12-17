@@ -1,0 +1,2 @@
+option('static', type: 'boolean', value: false, description: 'use static squashfuse')
+option('rootless', type: 'boolean', value: true, description: 'enable squashfuse version')
