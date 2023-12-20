@@ -1,4 +1,7 @@
-project('squashfs-mount', ['c'], default_options : ['c_std=c99'], version: files('VERSION'), meson_version: '>=0.57')
+project('squashfs-mount', ['c'],
+        default_options : ['c_std=c99', 'default_library=static'],
+        version: files('VERSION'),
+        meson_version: '>=0.57')
 
 rootless = get_option('rootless')
 
@@ -14,13 +17,28 @@ exec = executable('squashfs-mount',
                   # equivalent to: `chown root:root $exec; chmod u+s $exec;` before installation.
                   install_mode: ['rwsr-xr-x', 'root', 'root'],
                   install: true)
+
 if rootless
-  static_linking = get_option('static')
-  dep_sqfs = dependency('squashfuse_ll', static: static_linking)
-  dep_fuse = dependency('fuse')
+  default_library = get_option('default_library')
+  deps = []
+  if default_library == 'static'
+    deps += dependency('squashfuse_ll', static: true)
+    deps += dependency(get_option('fuse_version'), method: 'pkg-config', static: true)
+    # TODO: this needs to be passed as arguments
+    deps += dependency('liblz4', static: true)
+    deps += dependency('libzstd', static: true)
+    deps += dependency('liblzma', static: true)
+    deps += dependency('lzo2', static: true)
+    deps += dependency('zlib', static: true)
+
+  else
+    deps += dependency('squashfuse_ll', static: false)
+    deps += dependency(get_option('fuse_version'), method: 'pkg-config', static: false)
+  endif
+
   executable('squashfs-mount-rootless',
              sources: ['squashfs-mount-rootless.c', 'rootless.c', 'utils.c'],
-             dependencies: [dep_libmount, dep_sqfs, dep_fuse],
+             dependencies: deps,
              c_args: ['-DVERSION="@0@"'.format(version)],
              install_mode: [],
              install: true)

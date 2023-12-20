@@ -1,2 +1,2 @@
-option('static', type: 'boolean', value: false, description: 'use static squashfuse')
 option('rootless', type: 'boolean', value: true, description: 'enable squashfuse version')
+option('fuse_version', type : 'combo', choices : ['fuse3', 'fuse'], value : 'fuse3')
