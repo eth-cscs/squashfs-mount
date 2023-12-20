@@ -1,6 +1,5 @@
 *.o
 *.squashfs
-squashfs-mount
 rpm
 *.sqsh
 test-dir

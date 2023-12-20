@@ -38,26 +38,25 @@ function teardown() {
 
 
 @test "mount_single_image" {
-    run squashfs-mount ${SQFSDIR}/binaries.sqfs:/user-environment -- cat /user-environment/spack-install/fileA.txt
+    run ${SQFSEXE} ${SQFSDIR}/binaries.sqfs:/user-environment -- cat /user-environment/spack-install/fileA.txt
 }
 
 @test "mount_images" {
-    run squashfs-mount ${SQFSDIR}/binaries.sqfs:/user-environment ${SQFSDIR}/profilers.sqfs:/user-profilers ${SQFSDIR}/tools.sqfs:/user-tools -- cat /user-environment/spack-install/fileA.txt
+    run ${SQFSEXE} ${SQFSDIR}/binaries.sqfs:/user-environment ${SQFSDIR}/profilers.sqfs:/user-profilers ${SQFSDIR}/tools.sqfs:/user-tools -- cat /user-environment/spack-install/fileA.txt
 }
 
-
 @test "check_environment_variable" {
-    run bash -c 'squashfs-mount ${SQFSDIR}/binaries.sqfs:/user-environment ${SQFSDIR}/profilers.sqfs:/user-profilers ${SQFSDIR}/tools.sqfs:/user-tools -- (env | grep UENV_MOUNT_LIST)'
+    run bash -c "${SQFSEXE} ${SQFSDIR}/binaries.sqfs:/user-environment ${SQFSDIR}/profilers.sqfs:/user-profilers ${SQFSDIR}/tools.sqfs:/user-tools -- (env | grep UENV_MOUNT_LIST)"
 }
 
 @test "invalid_argument" {
-    run squashfs-mount invalid_argument -- true
+    run ${SQFSEXE} invalid_argument -- true
     assert_failure 1
 }
 
 @test "noop" {
     # check that no namespace is unshared, when nothing is mounted
     original_mnt=$(readlink /proc/$$/ns/mnt)
-    run bash -c 'squashfs-mount -- readlink /proc/$$/ns/mnt'
+    run bash -c "${SQFSEXE} -- readlink /proc/$$/ns/mnt"
     assert_output --partial ${original_mnt}
 }
