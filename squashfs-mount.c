@@ -243,11 +243,11 @@ int main(int argc, char **argv) {
 
   // export environment variable with mounted images (for slurm plugin)
   char *uenv_mount_list = malloc(sizeof(char) * 2 * positional_args * PATH_MAX);
-  sprintf(uenv_mount_list, "file://%s:%s", mount_entries[0].squashfs_file,
+  sprintf(uenv_mount_list, "%s:%s", mount_entries[0].squashfs_file,
           mount_entries[0].mountpoint);
   for (int i = 1; i < positional_args; ++i) {
     char buf[2 * PATH_MAX + 8];
-    sprintf(buf, ",file://%s:%s", mount_entries[i].squashfs_file,
+    sprintf(buf, ",%s:%s", mount_entries[i].squashfs_file,
             mount_entries[i].mountpoint);
     strcat(uenv_mount_list, buf);
   }
