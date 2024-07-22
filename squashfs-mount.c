@@ -24,9 +24,9 @@
   } while (0)
 
 static void help(char const *argv0) {
-  exit_with_error(
-      "Usage: %s <image>:<mountpoint> [<image>:<mountpoint>]...  -- <command> [args...]\n",
-      argv0);
+  exit_with_error("Usage: %s <image>:<mountpoint> [<image>:<mountpoint>]...  "
+                  "-- <command> [args...]\n",
+                  argv0);
 }
 
 typedef struct {
@@ -190,6 +190,57 @@ static mount_entry_t *parse_mount_entries(char **argv, int argc) {
   return mount_entries;
 }
 
+char **fwd_env() {
+  int num_old_vars = 0;
+  int num_fwd_vars = 0;
+  const char *prefix = "SQFSMNT_FWD_";
+  size_t prefix_len = strlen(prefix);
+
+  while (environ[num_old_vars] != NULL) {
+    if (strncmp(environ[num_old_vars], prefix, prefix_len) == 0) {
+      ++num_fwd_vars;
+    }
+    ++num_old_vars;
+  }
+
+  int num_new_vars = num_old_vars + num_fwd_vars;
+
+  // allocate memory for the new environment variables
+  char **new_environ = (char **)malloc(sizeof(char *) * (num_new_vars + 1));
+  if (new_environ == NULL) {
+    return NULL;
+  }
+
+  // copy the old environment to new_environ
+  // append the forwarded environment variables to the additional num_new_vars
+  // slots that were allocated
+  int i = 0;
+  int j = num_old_vars;
+
+  for (i = 0; i < num_old_vars; ++i) {
+    new_environ[i] = strdup(environ[i]);
+    // check for match
+    if (strncmp(environ[i], prefix, prefix_len) == 0) {
+      // assert(j < num_new_vars);
+      new_environ[j] = strdup(new_environ[i] + prefix_len);
+      if (new_environ[j] == NULL) {
+        return NULL;
+      }
+      ++j;
+    }
+  }
+  new_environ[j] = NULL;
+
+  return new_environ;
+}
+
+void free_env(char **envp) {
+  for (int i = 0; envp[i] != NULL; i++) {
+    free(envp[i]);
+  }
+  free(envp);
+}
+
 int main(int argc, char **argv) {
   char **fwd_argv;
   mount_entry_t *mount_entries;
@@ -259,5 +310,17 @@ int main(int argc, char **argv) {
   free(uenv_mount_list);
   free(mount_entries);
 
-  return execvp(fwd_argv[0], fwd_argv);
+  char **new_env = fwd_env();
+  if (new_env == NULL) {
+    err(EXIT_FAILURE, "failed to modify the environment variables");
+  }
+
+  int result = execvpe(fwd_argv[0], fwd_argv, new_env);
+
+  // the remaining code is only called if execvpe fails
+
+  free_env(new_env);
+
+  err(EXIT_FAILURE, "unable to perform exve");
+  return result;
 }
