@@ -211,9 +211,9 @@ char **fwd_env() {
     return NULL;
   }
 
-  // copy the old environment to new_environ
-  // append the forwarded environment variables to the additional num_new_vars
-  // slots that were allocated
+  // Copy the old environment to new_environ.
+  // Append the forwarded environment variables to the additional num_new_vars
+  // slots that were allocated.
   int i = 0;
   int j = num_old_vars;
 
@@ -229,7 +229,30 @@ char **fwd_env() {
       ++j;
     }
   }
+
+  // assert(j==num_new_vars);
   new_environ[j] = NULL;
+
+  // For each new variable that was set, check whether it was already set in the
+  // calling environment. If it is, overwrite the original value with the new
+  // one. This step is not necessary in bash, but zsh requires it for the new
+  // value to be set correctly.
+  for (j = num_old_vars; j < num_new_vars; ++j) {
+    // find the first = sign
+    char *pos = strchr(new_environ[j], '=');
+    if (pos) {
+      size_t len = pos - new_environ[j] + 1;
+      // search for the first occurence of this in the existing variable list
+      for (i = 0; i < num_old_vars; ++i) {
+        if (strncmp(new_environ[i], new_environ[j], len) == 0) {
+          // copy in place
+          free(new_environ[i]);
+          new_environ[i] = strdup(new_environ[j]);
+          break;
+        }
+      }
+    }
+  }
 
   return new_environ;
 }
