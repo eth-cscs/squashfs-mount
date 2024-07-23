@@ -191,11 +191,11 @@ static mount_entry_t *parse_mount_entries(char **argv, int argc) {
 }
 
 char **fwd_env() {
+
   int num_old_vars = 0;
   int num_fwd_vars = 0;
   const char *prefix = "SQFSMNT_FWD_";
   size_t prefix_len = strlen(prefix);
-
   while (environ[num_old_vars] != NULL) {
     if (strncmp(environ[num_old_vars], prefix, prefix_len) == 0) {
       ++num_fwd_vars;
@@ -203,25 +203,28 @@ char **fwd_env() {
     ++num_old_vars;
   }
 
-  int num_new_vars = num_old_vars + num_fwd_vars;
+  const int num_total_vars = num_old_vars + num_fwd_vars;
 
   // allocate memory for the new environment variables
-  char **new_environ = (char **)malloc(sizeof(char *) * (num_new_vars + 1));
+  char **new_environ = (char **)malloc(sizeof(char *) * (num_total_vars + 1));
   if (new_environ == NULL) {
     return NULL;
   }
 
   // Copy the old environment to new_environ.
-  // Append the forwarded environment variables to the additional num_new_vars
+  // Append the forwarded environment variables to the additional num_total_vars
   // slots that were allocated.
   int i = 0;
   int j = num_old_vars;
 
   for (i = 0; i < num_old_vars; ++i) {
     new_environ[i] = strdup(environ[i]);
-    // check for match
+    if (new_environ[i] == NULL) {
+      return NULL;
+    }
+    // check whether the env. var name starts with the prefix
     if (strncmp(environ[i], prefix, prefix_len) == 0) {
-      // assert(j < num_new_vars);
+      // assert(j < num_total_vars);
       new_environ[j] = strdup(new_environ[i] + prefix_len);
       if (new_environ[j] == NULL) {
         return NULL;
@@ -230,14 +233,14 @@ char **fwd_env() {
     }
   }
 
-  // assert(j==num_new_vars);
+  // assert(j==num_total_vars);
   new_environ[j] = NULL;
 
   // For each new variable that was set, check whether it was already set in the
   // calling environment. If it is, overwrite the original value with the new
   // one. This step is not necessary in bash, but zsh requires it for the new
   // value to be set correctly.
-  for (j = num_old_vars; j < num_new_vars; ++j) {
+  for (j = num_old_vars; j < num_total_vars; ++j) {
     // find the first = sign
     char *pos = strchr(new_environ[j], '=');
     if (pos) {
