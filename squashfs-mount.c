@@ -310,7 +310,11 @@ int main(int argc, char **argv) {
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
       err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
     fprintf(stderr, "Warning no <image>:<mountpoint> argument was given.\n");
-    return execvp(fwd_argv[0], fwd_argv);
+    char **new_env = fwd_env();
+    if (new_env == NULL) {
+      err(EXIT_FAILURE, "failed to modify the environment variables");
+    }
+    return execvpe(fwd_argv[0], fwd_argv, new_env);
   }
 
   mount_entries = parse_mount_entries(argv, positional_args);
