@@ -307,8 +307,7 @@ int main(int argc, char **argv) {
   fwd_argv = argv + (positional_args + 1);
   // if no mountpoints given, run command directly
   if (positional_args == 0) {
-    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
-      err(EXIT_FAILURE, "PR_SET_NO_NEW_PRIVS failed");
+    return_to_user_and_no_new_privs(uid);
     fprintf(stderr, "Warning no <image>:<mountpoint> argument was given.\n");
     char **new_env = fwd_env();
     if (new_env == NULL) {
