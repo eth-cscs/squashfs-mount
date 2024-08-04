@@ -4,6 +4,7 @@ prefix = /usr/local
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 
+CPPFLAGS ?=
 CFLAGS ?= -Os -Wall -Wpedantic -Wextra -Wformat-overflow -Werror-implicit-function-declaration
 LDFLAGS ?= -Wl,--gc-sections,-s
 
@@ -16,7 +17,7 @@ RPMBUILD ?= rpmbuild
 all: squashfs-mount
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(SQUASHFS_MOUNT_CFLAGS) -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(SQUASHFS_MOUNT_CFLAGS) -c -o $@ $<
 
 squashfs-mount.o: VERSION
 
