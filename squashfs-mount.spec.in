@@ -25,4 +25,4 @@ make install-suid prefix=%{_prefix} DESTDIR=%{buildroot} mandir=%{_mandir}
 %files
 %license LICENSE
 %{_bindir}/%{name}
-%{_mandir}/man1/squashfs-mount.1
+%{_mandir}/man1/squashfs-mount.1.gz
