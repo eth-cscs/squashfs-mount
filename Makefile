@@ -4,7 +4,7 @@ prefix = /usr/local
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 
-CPPFLAGS ?=
+CPPFLAGS ?= -Wdate-time -D_FORTIFY_SOURCE=2
 CFLAGS ?= -Os -Wall -Wpedantic -Wextra -Wformat-overflow -Werror-implicit-function-declaration
 LDFLAGS ?= -Wl,--gc-sections,-s
 
