@@ -27,12 +27,13 @@ squashfs-mount: squashfs-mount.o
 install: squashfs-mount
 	mkdir -p $(DESTDIR)$(bindir)
 	cp -p squashfs-mount $(DESTDIR)$(bindir)
+	cp -p doc/squashfs-mount.1 $(DESTDIR)$(mandir)/man1
 
 install-suid: install
 	chown root:root $(DESTDIR)$(bindir)/squashfs-mount
 	chmod u+s $(DESTDIR)$(bindir)/squashfs-mount
 
-rpm: squashfs-mount.c VERSION LICENSE Makefile
+rpm: squashfs-mount.c VERSION LICENSE Makefile doc/squashfs-mount.1
 	./generate-rpm.sh -b $@
 	$(RPMBUILD) -bs --define "_topdir $@" $@/SPECS/squashfs-mount.spec
 

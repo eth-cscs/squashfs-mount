@@ -1,0 +1,32 @@
+.TH SQUASHFS-MOUNT "1" "July 2024" "squashfs-mount 1.0.0" "User Commands"
+.SH NAME
+squashfs-mount \-  setuid utility instead of FUSE for mounting squashfs files
+.SH SYNOPSIS
+.B squashfs-mount
+\fI\,<image>:<mountpoint> \/\fR[\fI\,<image>:<mountpoint>\/\fR]...  \fI\,-- <command> \/\fR[\fI\,args\/\fR...]
+.SH DESCRIPTION
+This manual page documents briefly the
+.B squashfs-mount
+command.
+This manual page was written for the Debian distribution
+because the original program does not have a manual page.
+.PP
+\fBsquashfs-mount\fP is is a small setuid utility for mounting squashfs files. It effectively
+runs
+.B mount -n -o loop,nosuid,nodev,ro -t squashfs [image] [mountpoint]
+in a mount namespace and then executes the given command as the invoking user.
+.SH OPTIONS
+A summary of options is included below.
+.TP
+\fB\-h\fR
+Prints a short usage information.
+.TP
+\fB\-v\fR
+Prints the version of the program.
+.PP
+.SH AUTHOR
+squashfs-mount was written by Ben Cumming, Simon Pintarelli and Harmen Stoppels
+at the CSCS (Centro Svizzero di Calcolo Scientifico).
+.PP
+This manual page was written by Salvatore Bonaccorso <carnil@debian.org>,
+for the Debian project (but may be used by others).
