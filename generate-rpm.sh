@@ -30,6 +30,8 @@ cp "${source_path}/squashfs-mount.c" "${tar_path}"
 cp "${source_path}/Makefile" "${tar_path}"
 cp "${source_path}/LICENSE" "${tar_path}"
 cp "${source_path}/VERSION" "${tar_path}"
+mkdir -p "${tar_path}/doc"
+cp "${source_path}/doc/squashfs-mount.1" "${tar_path}/doc"
 
 tar_file="${build_path}/SOURCES/${pkg_name}.tar.gz"
 tar -czf "${tar_file}" --directory "${build_path}" "${pkg_name}"
