@@ -8,8 +8,6 @@ squashfs-mount \-  setuid utility instead of FUSE for mounting squashfs files
 This manual page documents briefly the
 .B squashfs-mount
 command.
-This manual page was written for the Debian distribution
-because the original program does not have a manual page.
 .PP
 \fBsquashfs-mount\fP is is a small setuid utility for mounting squashfs files. It effectively
 runs
