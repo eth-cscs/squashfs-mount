@@ -61,3 +61,9 @@ function teardown() {
     run bash -c 'squashfs-mount -- readlink /proc/$$/ns/mnt'
     assert_output --partial ${original_mnt}
 }
+
+@test "fwd_env_ld_library_path" {
+    # check forwarding for LD_LIBRARY_PATH
+    run bash -c 'SQFSMNT_FWD_LD_LIBRARY_PATH=foo squashfs-mount -- sh -c "env | grep ^LD_LIBRARY_PATH"'
+    assert_output --partial "foo"
+}

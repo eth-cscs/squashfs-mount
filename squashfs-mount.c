@@ -24,9 +24,9 @@
   } while (0)
 
 static void help(char const *argv0) {
-  exit_with_error(
-      "Usage: %s <image>:<mountpoint> [<image>:<mountpoint>]...  -- <command> [args...]\n",
-      argv0);
+  exit_with_error("Usage: %s <image>:<mountpoint> [<image>:<mountpoint>]...  "
+                  "-- <command> [args...]\n",
+                  argv0);
 }
 
 typedef struct {
@@ -190,6 +190,83 @@ static mount_entry_t *parse_mount_entries(char **argv, int argc) {
   return mount_entries;
 }
 
+char **fwd_env() {
+
+  int num_old_vars = 0;
+  int num_fwd_vars = 0;
+  const char *prefix = "SQFSMNT_FWD_";
+  size_t prefix_len = strlen(prefix);
+  while (environ[num_old_vars] != NULL) {
+    if (strncmp(environ[num_old_vars], prefix, prefix_len) == 0) {
+      ++num_fwd_vars;
+    }
+    ++num_old_vars;
+  }
+
+  const int num_total_vars = num_old_vars + num_fwd_vars;
+
+  // allocate memory for the new environment variables
+  char **new_environ = (char **)malloc(sizeof(char *) * (num_total_vars + 1));
+  if (new_environ == NULL) {
+    return NULL;
+  }
+
+  // Copy the old environment to new_environ.
+  // Append the forwarded environment variables to the additional num_total_vars
+  // slots that were allocated.
+  int i = 0;
+  int j = num_old_vars;
+
+  for (i = 0; i < num_old_vars; ++i) {
+    new_environ[i] = strdup(environ[i]);
+    if (new_environ[i] == NULL) {
+      return NULL;
+    }
+    // check whether the env. var name starts with the prefix
+    if (strncmp(environ[i], prefix, prefix_len) == 0) {
+      // assert(j < num_total_vars);
+      new_environ[j] = strdup(new_environ[i] + prefix_len);
+      if (new_environ[j] == NULL) {
+        return NULL;
+      }
+      ++j;
+    }
+  }
+
+  // assert(j==num_total_vars);
+  new_environ[j] = NULL;
+
+  // For each new variable that was set, check whether it was already set in the
+  // calling environment. If it is, overwrite the original value with the new
+  // one. This step is not necessary in bash, but zsh requires it for the new
+  // value to be set correctly.
+  for (j = num_old_vars; j < num_total_vars; ++j) {
+    // find the first = sign
+    char *pos = strchr(new_environ[j], '=');
+    if (pos) {
+      size_t len = pos - new_environ[j] + 1;
+      // search for the first occurence of this in the existing variable list
+      for (i = 0; i < num_old_vars; ++i) {
+        if (strncmp(new_environ[i], new_environ[j], len) == 0) {
+          // copy in place
+          free(new_environ[i]);
+          new_environ[i] = strdup(new_environ[j]);
+          break;
+        }
+      }
+    }
+  }
+
+  return new_environ;
+}
+
+void free_env(char **envp) {
+  for (int i = 0; envp[i] != NULL; i++) {
+    free(envp[i]);
+  }
+  free(envp);
+}
+
 int main(int argc, char **argv) {
   char **fwd_argv;
   mount_entry_t *mount_entries;
@@ -230,8 +307,13 @@ int main(int argc, char **argv) {
   fwd_argv = argv + (positional_args + 1);
   // if no mountpoints given, run command directly
   if (positional_args == 0) {
+    return_to_user_and_no_new_privs(uid);
     fprintf(stderr, "Warning no <image>:<mountpoint> argument was given.\n");
-    return execvp(fwd_argv[0], fwd_argv);
+    char **new_env = fwd_env();
+    if (new_env == NULL) {
+      err(EXIT_FAILURE, "failed to modify the environment variables");
+    }
+    return execvpe(fwd_argv[0], fwd_argv, new_env);
   }
 
   mount_entries = parse_mount_entries(argv, positional_args);
@@ -259,5 +341,17 @@ int main(int argc, char **argv) {
   free(uenv_mount_list);
   free(mount_entries);
 
-  return execvp(fwd_argv[0], fwd_argv);
+  char **new_env = fwd_env();
+  if (new_env == NULL) {
+    err(EXIT_FAILURE, "failed to modify the environment variables");
+  }
+
+  int result = execvpe(fwd_argv[0], fwd_argv, new_env);
+
+  // the remaining code is only called if execvpe fails
+
+  free_env(new_env);
+
+  err(EXIT_FAILURE, "unable to perform exve");
+  return result;
 }

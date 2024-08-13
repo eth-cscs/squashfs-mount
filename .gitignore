@@ -4,3 +4,4 @@ squashfs-mount
 rpm
 *.sqsh
 test-dir
+.cache
