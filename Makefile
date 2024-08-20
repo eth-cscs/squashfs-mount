@@ -6,7 +6,7 @@ bindir = $(exec_prefix)/bin
 datarootdir = $(prefix)/share
 mandir ?= $(datarootdir)/man
 
-CPPFLAGS ?=
+CPPFLAGS ?= -Wdate-time -D_FORTIFY_SOURCE=2
 CFLAGS ?= -Os -Wall -Wpedantic -Wextra -Wformat-overflow -Werror-implicit-function-declaration
 LDFLAGS ?= -Wl,--gc-sections,-s
 
