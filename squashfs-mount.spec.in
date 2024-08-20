@@ -20,8 +20,9 @@ A small setuid binary that mounts a squashfs image in a mount namespace then exe
 make %{?_smp_mflags}
 
 %install
-make install-suid prefix=%{_prefix} DESTDIR=%{buildroot}
+make install-suid prefix=%{_prefix} DESTDIR=%{buildroot} mandir=%{_mandir}
 
 %files
 %license LICENSE
 %{_bindir}/%{name}
+%{_mandir}/man1/squashfs-mount.1.gz
