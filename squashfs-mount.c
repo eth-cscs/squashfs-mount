@@ -7,10 +7,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/mount.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <libmount/libmount.h>
@@ -24,8 +27,8 @@
   } while (0)
 
 static void help(char const *argv0) {
-  exit_with_error("Usage: %s <image>:<mountpoint> [<image>:<mountpoint>]...  "
-                  "-- <command> [args...]\n",
+  exit_with_error("Usage: %s <options> <image>:<mountpoint> [<image>:<mountpoint>]...  "
+                  "-- <command> [args...]\nOptions:\n--squashfuse   Use Squashfuse to mount images rootless.\n",
                   argv0);
 }
 
@@ -33,6 +36,34 @@ typedef struct {
   char squashfs_file[PATH_MAX];
   char mountpoint[PATH_MAX];
 } mount_entry_t;
+
+static void unshare_mntns_and_usrns(uid_t euid, uid_t egid) {
+  int fd; //initialize file descriptor 
+
+  if (unshare(CLONE_NEWNS|CLONE_NEWUSER) != 0) //unshare mount and user namespace
+    err(EXIT_FAILURE, "Failed to unshare the user and mount namespaces");
+  
+  // Set the userid inside the user namespace to the root user (0)
+  if (-1 == (fd = open("/proc/self/uid_map", O_WRONLY)))
+    err(EXIT_FAILURE, "Failed to open uid_map for user namespace");
+  if (1 > dprintf(fd, "%d %d 1\n", 0, euid)) //change 0, 0 for non-root inside namespace
+    err(EXIT_FAILURE, "Failed to set UID inside user namespace");
+  close(fd);
+
+  // Set the setgroups option to 'deny' inside the user namespace
+  if (-1 == (fd = open("/proc/self/setgroups", O_WRONLY)))
+    err(EXIT_FAILURE, "Failed to open setgroups for user namespace");
+  if (1 > dprintf(fd, "deny\n")) 
+    err(EXIT_FAILURE, "Failed to set 'setgroups deny' inside user namespace");
+  close(fd);
+
+  // Set the groupid inside the user namespace to the root group (0)
+  if (-1 == (fd = open("/proc/self/gid_map", O_WRONLY)))
+    err(EXIT_FAILURE, "Failed to open gid_map for user namespace");
+  if (1 > dprintf(fd, "%d %d 1\n", 0, egid)) //change 0, 0 for non-root inside namespace
+    err(EXIT_FAILURE, "Failed to set GID inside user namespace");
+  close(fd);
+}
 
 static void unshare_mntns_and_become_root() {
   if (unshare(CLONE_NEWNS) != 0)
@@ -83,41 +114,48 @@ static void validate_file_and_mountpoint(char const *squashfs_file,
          squashfs_file);
 }
 
-static void do_mount(const mount_entry_t *entry) {
+static void do_mount(const mount_entry_t *entry, bool squashfuse) {
   struct libmnt_context *cxt;
 
   validate_file_and_mountpoint(entry->squashfs_file, entry->mountpoint);
+  if (squashfuse) { //use squashfuse instead of mount
+    char squashfuse_command[1024];
+    sprintf(squashfuse_command, "squashfuse %s %s", entry->squashfs_file, entry->mountpoint);
+    if (system(squashfuse_command) == -1)
+      err(EXIT_FAILURE, "Failed to mount squashfs image with squashfuse");
+  }
+  else {// normal squashfs-mount: use mount
+      cxt = mnt_new_context();
 
-  cxt = mnt_new_context();
+    if (mnt_context_disable_mtab(cxt, 1) != 0)
+      errx(EXIT_FAILURE, "Failed to disable mtab");
 
-  if (mnt_context_disable_mtab(cxt, 1) != 0)
-    errx(EXIT_FAILURE, "Failed to disable mtab");
+    if (mnt_context_set_fstype(cxt, "squashfs") != 0)
+      errx(EXIT_FAILURE, "Failed to set fstype to squashfs");
 
-  if (mnt_context_set_fstype(cxt, "squashfs") != 0)
-    errx(EXIT_FAILURE, "Failed to set fstype to squashfs");
+    if (mnt_context_append_options(cxt, "loop,nosuid,nodev,ro") != 0)
+      errx(EXIT_FAILURE, "Failed to set mount options");
 
-  if (mnt_context_append_options(cxt, "loop,nosuid,nodev,ro") != 0)
-    errx(EXIT_FAILURE, "Failed to set mount options");
+    if (mnt_context_set_source(cxt, entry->squashfs_file) != 0)
+      errx(EXIT_FAILURE, "Failed to set source");
 
-  if (mnt_context_set_source(cxt, entry->squashfs_file) != 0)
-    errx(EXIT_FAILURE, "Failed to set source");
+    if (mnt_context_set_target(cxt, entry->mountpoint) != 0)
+      errx(EXIT_FAILURE, "Failed to set target");
 
-  if (mnt_context_set_target(cxt, entry->mountpoint) != 0)
-    errx(EXIT_FAILURE, "Failed to set target");
-
-  // Attempt to mount
-  int mount_exit_code = mnt_context_mount(cxt);
-  if (mount_exit_code != 0) {
-    char err_buf[BUFSIZ] = {0};
-    mnt_context_get_excode(cxt, mount_exit_code, err_buf, sizeof(err_buf));
-    const char *tgt = mnt_context_get_target(cxt);
-    if (*err_buf != '\0' && tgt != NULL)
-      exit_with_error("%s: %s\n", tgt, err_buf);
-    errx(EXIT_FAILURE, "Failed to mount");
+    // Attempt to mount
+    int mount_exit_code = mnt_context_mount(cxt);
+    if (mount_exit_code != 0) {
+      char err_buf[BUFSIZ] = {0};
+      mnt_context_get_excode(cxt, mount_exit_code, err_buf, sizeof(err_buf));
+      const char *tgt = mnt_context_get_target(cxt);
+      if (*err_buf != '\0' && tgt != NULL)
+        exit_with_error("%s: %s\n", tgt, err_buf);
+      errx(EXIT_FAILURE, "Failed to mount");
+    }
   }
 }
 
-static void do_mount_loop(const mount_entry_t *mount_entries, int n) {
+static void do_mount_loop(const mount_entry_t *mount_entries, int n, bool squashfuse) {
 
   // exit if there is a duplicate  in (sorted) array of mountpoints
   for (int i = 0; i < n - 1; ++i) {
@@ -138,10 +176,21 @@ static void do_mount_loop(const mount_entry_t *mount_entries, int n) {
       }
     }
   }
-
   for (int i = 0; i < n; ++i) {
-    do_mount(mount_entries + i);
+    do_mount(mount_entries + i, squashfuse); //pass squashfuse bool to do_mount
   }
+
+}
+
+static void do_unmount(const mount_entry_t *entry) { //single unmount for squashfuse mount
+  if (umount2(entry->mountpoint, MNT_DETACH) == -1)
+    err(EXIT_FAILURE, "Failed to unmount squashfs image (check ps -ef to kill)");
+}
+
+static void do_unmount_loop(const mount_entry_t *mount_entries, int n){ //loop for unmount each squashfuse mount
+  for (int i = 0; i < n; ++i) {
+    do_unmount(mount_entries + i);
+  } 
 }
 
 /// lexical sorting for mountpoint
@@ -271,11 +320,13 @@ int main(int argc, char **argv) {
   char **fwd_argv;
   mount_entry_t *mount_entries;
   uid_t uid = getuid();
+  bool squashfuse = false;
 
   char *program = argv[0];
 
   argv++;
   argc--;
+
 
   int positional_args = 0;
   // Early exit for -h, --help, -v, --version.
@@ -295,6 +346,12 @@ int main(int argc, char **argv) {
     if (strcmp(arg, "-v") == 0 || strcmp(arg, "--version") == 0) {
       puts(VERSION);
       exit(EXIT_SUCCESS);
+    }
+    if (strcmp(arg, "-s") == 0 || strcmp(arg, "--squashfuse") == 0) {
+      squashfuse = true;
+        argv++;
+        argc--;
+      continue;
     }
     // Error on unrecognized flags.
     errx(EXIT_FAILURE, "Unknown flag %s", argv[i]);
@@ -317,12 +374,23 @@ int main(int argc, char **argv) {
   }
 
   mount_entries = parse_mount_entries(argv, positional_args);
+  
+  //get euid and egid for squashfuse
+  uid_t euid = geteuid();
+  uid_t egid = getegid();
 
-  unshare_mntns_and_become_root();
-  do_mount_loop(mount_entries, positional_args);
-  // return to user, set PR_SET_NO_NEW_PRIVS
-  return_to_user_and_no_new_privs(uid);
+  if (squashfuse){ //if squashfuse, unshare mount and user namespace (rootless)
+    unshare_mntns_and_usrns(euid, egid);
+  }
+  else{
+    unshare_mntns_and_become_root(); //else, unshare mount namespace and setuid()
+  }
+  do_mount_loop(mount_entries, positional_args, squashfuse); //pass squashfuse bool to do_mount_loop
 
+  // return to user, set PR_SET_NO_NEW_PRIVS (if no squashfuse)
+  if (!squashfuse){
+    return_to_user_and_no_new_privs(uid);
+  }
   // export environment variable with mounted images (for slurm plugin)
   char *uenv_mount_list = malloc(sizeof(char) * 2 * positional_args * PATH_MAX);
   sprintf(uenv_mount_list, "%s:%s", mount_entries[0].squashfs_file,
@@ -337,21 +405,68 @@ int main(int argc, char **argv) {
     err(EXIT_FAILURE, "failed to set environment variables");
   }
 
-  // cleanup
-  free(uenv_mount_list);
-  free(mount_entries);
-
   char **new_env = fwd_env();
   if (new_env == NULL) {
     err(EXIT_FAILURE, "failed to modify the environment variables");
   }
 
-  int result = execvpe(fwd_argv[0], fwd_argv, new_env);
+  if (squashfuse){
+    pid_t pid = fork(); //child process runs execvpe, parent process waits for return and then unmounts squashfuse.
+    int cmd_length = 5+argc-positional_args; //(unshare + args =5) + (command + command args = (argc-positional_args-1)) + (NULL = 1) --> 5+argc-positional_args
+    char *unshare_command[cmd_length];
 
+    if (pid == -1){
+      perror("Fork Failed\n");
+      return 1;
+    }
+    else if (pid == 0) { //child process
+      //unshare mount and user namespace
+      unshare_command[0] = "unshare";
+      unshare_command[1] = "--mount";
+      unshare_command[2] = "--user";
+
+      //map to outside euid
+      char map_user[64];
+      sprintf(map_user, "--map-user=%d", euid);
+      unshare_command[3] = map_user;
+
+      //map to outside egid
+      char map_group[64];
+      sprintf(map_group, "--map-group=%d", egid);
+      unshare_command[4] = map_group;
+
+      //load fwd_argv into unshare_command
+      for (int i = 0; i < (argc-positional_args-1); i++){
+        unshare_command[i+5] = fwd_argv[i];
+        //printf(fwd_argv[i]);
+      }
+      unshare_command[cmd_length-1] = NULL; //add null terminator 
+
+      int result = execvpe(unshare_command[0], unshare_command, new_env); //exec nested unshare with user command
+      free_env(new_env);
+      err(EXIT_FAILURE, "unable to perform exve");
+      return result;
+    }
+    else{ //parent process
+      int status;
+      waitpid(pid, &status, 0); //wait for return
+      do_unmount_loop(mount_entries, positional_args); //unmount squashfuse mounts
+    }
+    // cleanup
+    free(uenv_mount_list);
+    free(mount_entries);
+  }
+  else{ //normal squashfs-mount
+      // cleanup
+      free(uenv_mount_list);
+      free(mount_entries);
+      int result = execvpe(fwd_argv[0], fwd_argv, new_env);
+      free_env(new_env);
+      err(EXIT_FAILURE, "unable to perform exve");
+      return result;
+  }
+
+  return 1;
   // the remaining code is only called if execvpe fails
 
-  free_env(new_env);
-
-  err(EXIT_FAILURE, "unable to perform exve");
-  return result;
 }
