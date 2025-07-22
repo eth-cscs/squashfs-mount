@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
     if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0)
       help(program);
     if (strcmp(arg, "-v") == 0 || strcmp(arg, "--version") == 0) {
-      puts(VERSION);
+      puts(SQFS_MOUNT_VERSION);
       exit(EXIT_SUCCESS);
     }
     // Error on unrecognized flags.

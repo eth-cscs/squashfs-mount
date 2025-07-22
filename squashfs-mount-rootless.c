@@ -2,7 +2,6 @@
 #include "rootless.h"
 #include "utils.h"
 #include <err.h>
-#include <errno.h>
 #include <limits.h>
 #include <signal.h>
 #include <squashfuse/ll.h>
